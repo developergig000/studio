@@ -36,12 +36,9 @@ export default function IntegrationPage() {
             errorMessage = errorData.message || JSON.stringify(errorData);
           }
         } catch (e) {
-          // If JSON parsing fails, it might be plain text
-          try {
-            errorMessage = await response.text();
-          } catch (textError) {
-             errorMessage = `Service responded with status ${response.status} but failed to parse error response.`;
-          }
+          // If the body is empty or not valid JSON, parsing will fail.
+          // In that case, we'll just use the status code to create a meaningful message.
+          errorMessage = `Service responded with status ${response.status} (${response.statusText}). This usually indicates an authentication or permission issue. Please verify your WAHA_API_KEY in the .env file.`;
         }
         
         const finalMessage = errorMessage || `An unknown error occurred. Status: ${response.status}`;
