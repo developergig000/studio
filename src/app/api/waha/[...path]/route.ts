@@ -44,11 +44,17 @@ async function handler(
   const targetUrl = `${wahaApiUrl}/${path.join('/')}`;
 
   try {
-    const headers = new Headers(req.headers);
-    // Add the required API key for WAHA. This is kept on the server and never exposed to the client.
+    // Rebuild headers to avoid passing problematic ones from the browser (e.g., 'host').
+    // This prevents errors like 'UND_ERR_INVALID_ARG'.
+    const headers = new Headers();
+    
+    // Securely add the API key for WAHA authentication.
     headers.set('X-Api-Key', wahaApiKey);
-    // Remove host header to avoid conflicts.
-    headers.delete('host');
+
+    // Pass through the content-type if it exists, which is important for POST/PUT requests.
+    if (req.headers.has('Content-Type')) {
+        headers.set('Content-Type', req.headers.get('Content-Type')!);
+    }
 
 
     // Forward the request to the WAHA service.
