@@ -5,8 +5,8 @@ import { AuthProvider } from '@/components/auth/auth-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'SalesForceLite',
-  description: 'A lightweight sales force management tool.',
+  title: 'GreenlabCRM',
+  description: 'A CRM for Greenlab.',
 };
 
 export default function RootLayout({

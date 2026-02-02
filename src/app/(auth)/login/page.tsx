@@ -68,7 +68,7 @@ export default function LoginPage() {
         <div className="mx-auto mb-4">
           <Logo className="h-12 w-12 text-primary" />
         </div>
-        <CardTitle className="font-headline text-2xl">Welcome to SalesForceLite</CardTitle>
+        <CardTitle className="font-headline text-2xl">Welcome to GreenlabCRM</CardTitle>
         <CardDescription>Enter your credentials to access your dashboard.</CardDescription>
       </CardHeader>
       <CardContent>

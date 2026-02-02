@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarHeader className="border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <Logo className="h-8 w-8 text-primary" />
-            <span className="text-lg font-headline font-semibold">SalesForceLite</span>
+            <span className="text-lg font-headline font-semibold">GreenlabCRM</span>
           </div>
         </SidebarHeader>
         <SidebarContent>
