@@ -7,7 +7,6 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { app } from '@/lib/firebase/client';
 import Link from 'next/link';
 
 export default function SeedPage() {
@@ -21,7 +20,8 @@ export default function SeedPage() {
     toast({ title: 'Seeding database...', description: 'This may take a moment.' });
 
     try {
-      const functions = getFunctions(app);
+      // Let Firebase automatically discover the initialized app instance.
+      const functions = getFunctions();
       const seedInitialUsers = httpsCallable(functions, 'seedInitialUsers');
       const result = await seedInitialUsers();
       
@@ -35,12 +35,23 @@ export default function SeedPage() {
 
     } catch (error: any) {
       console.error('Seeding error:', error);
-      setStatus(`Seeding failed: ${error.message}`);
-      toast({
-        variant: 'destructive',
-        title: 'Seeding Failed',
-        description: error.message || 'An unknown error occurred.',
-      });
+      
+      // Provide more details for HttpsError from Cloud Functions
+      if (error.code && error.details) {
+        setStatus(`Seeding failed: ${error.message} (Code: ${error.code})`);
+        toast({
+          variant: 'destructive',
+          title: `Seeding Failed: ${error.code}`,
+          description: error.message,
+        });
+      } else {
+        setStatus(`Seeding failed: ${error.message}`);
+        toast({
+          variant: 'destructive',
+          title: 'Seeding Failed',
+          description: error.message || 'An unknown error occurred.',
+        });
+      }
     } finally {
       setIsSeeding(false);
     }

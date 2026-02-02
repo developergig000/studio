@@ -37,20 +37,13 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     try {
-      const userCredential = await signIn(values.email, values.password);
-      const idTokenResult = await userCredential.user.getIdTokenResult();
-      const userRole = (idTokenResult.claims.role as string) || 'SALES';
-
+      await signIn(values.email, values.password);
       toast({
         title: 'Login Successful',
         description: 'Redirecting to your dashboard...',
       });
-
-      if (userRole === 'HEAD_SALES') {
-        router.push('/dashboard/head');
-      } else {
-        router.push('/dashboard/sales');
-      }
+      // The main page's useEffect will handle role-based redirection.
+      router.push('/');
     } catch (error: any) {
       console.error(error);
       toast({
@@ -63,6 +56,7 @@ export default function LoginPage() {
   }
 
   React.useEffect(() => {
+    // If the user is already logged in, redirect them from the login page.
     if (!loading && user) {
       router.replace('/');
     }
