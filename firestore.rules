@@ -20,8 +20,8 @@
  * - Self-Service Profile: Users are empowered to create their own user document upon
  *   first sign-in and manage it thereafter. Writes are strictly confined to a user's
  *   own document.
- * - Admin User Creation: 'HEAD_SALES' users are permitted to create new user documents
- *   for others, which is necessary for the User Management feature.
+ * - Admin User Creation & Management: 'HEAD_SALES' users are permitted to create new user documents
+ *   for others and update any user's profile, which is necessary for the User Management feature.
  *
  * Denormalization for Authorization: The `role` field on each `/users/{userId}`
  * document is a critical piece of denormalized data. It allows the `isHeadSales()`
@@ -93,13 +93,14 @@ service cloud.firestore {
 
     /**
      * @description Manages user profile documents. Users can manage their own profile.
-     *   'HEAD_SALES' users have read-access to all user profiles and can create new users.
+     *   'HEAD_SALES' users have read-access to all user profiles and can create/update new users.
      * @path /users/{userId}
      * @allow (get) A 'HEAD_SALES' user getting another user's profile.
      * @allow (list) A 'HEAD_SALES' user listing all user documents. Exception for seeding.
      * @allow (create) An authenticated user creating their own profile or a 'HEAD_SALES' user creating any profile.
+     * @allow (update) An authenticated user updating their own profile or a 'HEAD_SALES' user updating any profile.
      * @deny (list) A 'SALES' user attempting to list all users.
-     * @deny (update) A user trying to update another user's profile.
+     * @deny (update) A user trying to update another user's profile (unless they are HEAD_SALES).
      * @principle Enforces a Database-based Access Control (DBAC) model where a user's role,
      *   stored on their own document, determines their access permissions across the collection.
      */
@@ -115,8 +116,9 @@ service cloud.firestore {
       // The 'id' must always match the document's UID for integrity.
       allow create: if isCreatingOwnProfile(userId) || (isHeadSales() && request.resource.data.id == userId);
 
-      // WRITE: A user can only update their own profile; critical fields are immutable.
-      allow update: if isUpdatingOwnProfile(userId);
+      // WRITE: A user can only update their own profile, or a HEAD_SALES user can update any profile.
+      // The 'id' field must remain immutable.
+      allow update: if isUpdatingOwnProfile(userId) || (isHeadSales() && request.resource.data.id == resource.data.id);
 
       // WRITE: A user can only delete their own existing profile.
       allow delete: if isExistingOwner(userId);

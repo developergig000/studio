@@ -10,14 +10,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
-import type { UserRole } from '@/lib/types';
+import type { UserRole, UserGroup } from '@/lib/types';
 
 const usersToSeed = [
-  { name: 'Nadya Galuh Prabandini', role: 'HEAD_SALES' as UserRole, email: 'nadya@msbd.co.id', password: '12345678' },
-  { name: 'Khairunnisa Shultoni Marien', role: 'SALES' as UserRole, email: 'khairunnisa@msbd.co.id', password: '12345678' },
-  { name: 'Sika Harum Al Humairo', role: 'SALES' as UserRole, email: 'sika@msbd.co.id', password: '12345678' },
-  { name: 'Rika Saputri Anggraini', role: 'SALES' as UserRole, email: 'rika@msbd.co.id', password: '12345678' },
-  { name: 'Dimas Ananda Nugroho', role: 'SALES' as UserRole, email: 'dimas@msbd.co.id', password: '12345678' },
+  { name: 'Nadya Galuh Prabandini', role: 'HEAD_SALES' as UserRole, email: 'nadya@msbd.co.id', password: '12345678', group: 'Yogyakarta' as UserGroup },
+  { name: 'Khairunnisa Shultoni Marien', role: 'SALES' as UserRole, email: 'khairunnisa@msbd.co.id', password: '12345678', group: 'Yogyakarta' as UserGroup },
+  { name: 'Sika Harum Al Humairo', role: 'SALES' as UserRole, email: 'sika@msbd.co.id', password: '12345678', group: 'Pekanbaru' as UserGroup },
+  { name: 'Rika Saputri Anggraini', role: 'SALES' as UserRole, email: 'rika@msbd.co.id', password: '12345678', group: 'Yogyakarta' as UserGroup },
+  { name: 'Dimas Ananda Nugroho', role: 'SALES' as UserRole, email: 'dimas@msbd.co.id', password: '12345678', group: 'Pekanbaru' as UserGroup },
 ];
 
 export default function SeedPage() {
@@ -60,6 +60,7 @@ export default function SeedPage() {
           name: userData.name,
           email: userData.email,
           role: userData.role,
+          group: userData.group,
           createdAt: serverTimestamp(),
         });
         setStatus(`Successfully created ${userData.email}`);

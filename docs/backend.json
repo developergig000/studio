@@ -23,6 +23,14 @@
           "type": "string",
           "description": "The role of the user in the application (e.g., HEAD_SALES, SALES)."
         },
+        "group": {
+          "type": "string",
+          "description": "The sales group the user belongs to (e.g., Yogyakarta, Pekanbaru).",
+          "enum": [
+            "Yogyakarta",
+            "Pekanbaru"
+          ]
+        },
         "createdAt": {
           "type": "string",
           "description": "The timestamp when the user account was created.",
