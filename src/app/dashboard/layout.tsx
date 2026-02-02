@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare, QrCode } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -69,6 +69,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const getPageTitle = () => {
     if (pathname === '/dashboard/head') return 'My Dashboard';
     if (pathname === '/dashboard/head/user-management') return 'User Management';
+    if (pathname.startsWith('/dashboard/sales/waha')) return 'Sesi WhatsApp';
     if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
     if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
     if (pathname.startsWith('/dashboard/chat')) return 'Obrolan';
@@ -110,13 +111,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {user.role === 'SALES' && (
                      <>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales')}>
+                            <SidebarMenuButton asChild isActive={pathname === '/dashboard/sales'}>
                                 <Link href="/dashboard/sales"><User />My Profile</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/chat')}>
                                 <Link href="/dashboard/chat"><MessageSquare />Obrolan</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales/waha')}>
+                                <Link href="/dashboard/sales/waha"><QrCode />Sesi WhatsApp</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                      </>
