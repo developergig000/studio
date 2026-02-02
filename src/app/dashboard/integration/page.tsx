@@ -6,8 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Loader2, Server, CheckCircle, XCircle, UserCheck, Plug } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 
 
@@ -15,46 +13,37 @@ export default function IntegrationPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [wahaStatus, setWahaStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [wahaUrl, setWahaUrl] = React.useState('/api/health'); // Default to internal health check for demo
   const [wahaErrorMessage, setWahaErrorMessage] = React.useState<string | null>(null);
 
   const handlePingWaha = async () => {
-    if (!wahaUrl) {
-        toast({
-            variant: 'destructive',
-            title: 'URL Diperlukan',
-            description: 'Silakan masukkan URL layanan WAHA untuk diuji.',
-        });
-        return;
-    }
-
     setWahaStatus('loading');
     setWahaErrorMessage(null);
 
     try {
-      const response = await fetch(wahaUrl);
+      // We now call our own secure proxy endpoint
+      const response = await fetch('/api/waha/health');
       
       if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Service responded with status ${response.status}: ${errorData || 'No additional details'}`);
+        let errorData;
+        try {
+            errorData = await response.json();
+        } catch (e) {
+            errorData = await response.text();
+        }
+        throw new Error(errorData.message || `Service responded with status ${response.status}`);
       }
       
-      // You might want to check the response body for a specific "ok" message
-      // const data = await response.json();
-
       setWahaStatus('success');
 
     } catch (error: any) {
       setWahaStatus('error');
-      let message = 'Gagal terhubung ke layanan WAHA. Periksa URL dan pastikan layanan sedang berjalan.';
+      let message = 'Gagal terhubung ke layanan WAHA. Pastikan URL dan API Key di .env.local sudah benar dan layanan WAHA sedang berjalan.';
       if (error.message) {
         message = error.message;
-      } else if (typeof error === 'string') {
-        message = error;
       }
-      // Specific error for network failure
+      
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        message = `Gagal melakukan fetch ke ${wahaUrl}. Ini mungkin disebabkan oleh masalah CORS, jaringan, atau DNS. Pastikan URL dapat diakses dari browser.`;
+        message = `Gagal melakukan fetch ke proxy API. Pastikan aplikasi Next.js berjalan dengan benar.`;
       }
       setWahaErrorMessage(message);
       console.error("WAHA Ping Error:", error);
@@ -67,7 +56,7 @@ export default function IntegrationPage() {
         return (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Mencoba menghubungkan ke {wahaUrl}...</span>
+            <span>Mencoba menghubungkan ke layanan WAHA...</span>
           </div>
         );
       case 'success':
@@ -89,7 +78,7 @@ export default function IntegrationPage() {
         );
       case 'idle':
       default:
-        return <p className="text-sm text-muted-foreground">Masukkan URL dan klik tombol untuk menguji koneksi ke layanan WAHA.</p>;
+        return <p className="text-sm text-muted-foreground">Klik tombol untuk menguji koneksi ke layanan WAHA.</p>;
     }
   };
 
@@ -132,19 +121,10 @@ export default function IntegrationPage() {
                     <CardTitle>WAHA Service</CardTitle>
                 </div>
                 <CardDescription>
-                   Performs a real-time test to ensure the WAHA (WhatsApp HTTP API) service is reachable.
+                   Performs a real-time test to ensure the WAHA (WhatsApp HTTP API) service is reachable via a secure proxy. Credentials are managed via .env.local.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="waha-url">WAHA Service URL</Label>
-                    <Input 
-                        id="waha-url" 
-                        placeholder="http://your-waha-service.com/health" 
-                        value={wahaUrl}
-                        onChange={(e) => setWahaUrl(e.target.value)}
-                    />
-                </div>
                 <Button onClick={handlePingWaha} disabled={wahaStatus === 'loading'}>
                     {wahaStatus === 'loading' ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
