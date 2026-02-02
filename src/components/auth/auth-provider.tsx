@@ -6,8 +6,10 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   type UserCredential,
+  updateEmail,
+  updatePassword,
 } from 'firebase/auth';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/client';
 import type { User } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -18,6 +20,7 @@ interface AuthContextType {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<UserCredential>;
   signOut: () => Promise<void>;
+  updateProfileData: (data: { name?: string; email?: string; password?: string }) => Promise<void>;
 }
 
 export const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
@@ -106,7 +109,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await firebaseSignOut(auth);
   };
 
-  const value = { user, loading, signIn, signOut };
+  const updateProfileData = async (data: { name?: string; email?: string; password?: string }) => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("No user is currently signed in.");
+    }
+  
+    const promises = [];
+  
+    // Update name in Firestore
+    if (data.name) {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      promises.push(updateDoc(userDocRef, { name: data.name }));
+    }
+  
+    // Update email in Firebase Auth
+    if (data.email) {
+      promises.push(updateEmail(currentUser, data.email));
+    }
+  
+    // Update password in Firebase Auth
+    if (data.password) {
+      promises.push(updatePassword(currentUser, data.password));
+    }
+  
+    await Promise.all(promises);
+  };
+
+  const value = { user, loading, signIn, signOut, updateProfileData };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

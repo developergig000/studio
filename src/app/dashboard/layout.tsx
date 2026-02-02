@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Loader2, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User, Settings } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -59,7 +59,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const pageTitle = user.role === 'HEAD_SALES' ? 'My Dashboard' : 'My Profile';
+  const getPageTitle = () => {
+    if (pathname.startsWith('/dashboard/head')) return 'My Dashboard';
+    if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
+    if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
+    return user.role === 'HEAD_SALES' ? 'My Dashboard' : 'My Profile';
+  };
+  
+  const pageTitle = getPageTitle();
 
   return (
     <SidebarProvider>
@@ -86,6 +93,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 )}
+                 <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/profile')}>
+                        <Link href="/dashboard/profile"><Settings />Edit Profile</Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
             </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="border-t border-sidebar-border p-2">
