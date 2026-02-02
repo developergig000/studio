@@ -22,28 +22,40 @@ export default function IntegrationPage() {
     try {
       // We now call our own secure proxy endpoint
       const response = await fetch('/api/waha/health');
-      
+
       if (!response.ok) {
         let errorData;
+        let errorMessage;
         try {
-            errorData = await response.json();
+          // Try to parse the error response as JSON
+          errorData = await response.json();
+          errorMessage = errorData.message || JSON.stringify(errorData);
         } catch (e) {
-            errorData = await response.text();
+          // If JSON parsing fails, it might be plain text
+          try {
+            errorMessage = await response.text();
+          } catch (textError) {
+             errorMessage = `Service responded with status ${response.status} but failed to parse error response.`;
+          }
         }
-        throw new Error(errorData.message || `Service responded with status ${response.status}`);
+        
+        const finalMessage = errorMessage || `An unknown error occurred. Status: ${response.status}`;
+        
+        setWahaStatus('error');
+        setWahaErrorMessage(finalMessage);
+        console.error("WAHA Ping Error:", finalMessage);
+        return; // Stop execution
       }
       
       setWahaStatus('success');
 
     } catch (error: any) {
       setWahaStatus('error');
-      let message = 'Gagal terhubung ke layanan WAHA. Pastikan URL dan API Key di .env.local sudah benar dan layanan WAHA sedang berjalan.';
-      if (error.message) {
-        message = error.message;
-      }
+      let message = 'Gagal terhubung ke proxy API. Periksa koneksi internet Anda dan pastikan server aplikasi berjalan.';
       
-      if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        message = `Gagal melakukan fetch ke proxy API. Pastikan aplikasi Next.js berjalan dengan benar.`;
+      if (error.message) {
+        // This will typically catch network errors like 'Failed to fetch'
+        message = `Gagal melakukan fetch ke proxy API: ${error.message}.`;
       }
       setWahaErrorMessage(message);
       console.error("WAHA Ping Error:", error);
