@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Loader2, LogOut, User, Settings } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User, Settings, Users } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -67,7 +67,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   const getPageTitle = () => {
-    if (pathname.startsWith('/dashboard/head')) return 'My Dashboard';
+    if (pathname === '/dashboard/head') return 'My Dashboard';
+    if (pathname === '/dashboard/head/user-management') return 'User Management';
     if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
     if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
     return user.role === 'HEAD_SALES' ? 'My Dashboard' : 'My Profile';
@@ -87,11 +88,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SidebarContent>
             <SidebarMenu>
                 {user.role === 'HEAD_SALES' && (
-                    <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/head')}>
-                            <Link href="/dashboard/head"><LayoutDashboard />My Dashboard</Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
+                    <>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname === '/dashboard/head'}>
+                                <Link href="/dashboard/head"><LayoutDashboard />My Dashboard</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname === '/dashboard/head/user-management'}>
+                                <Link href="/dashboard/head/user-management"><Users />User Management</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    </>
                 )}
                 {user.role === 'SALES' && (
                      <SidebarMenuItem>
