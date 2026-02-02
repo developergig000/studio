@@ -5,9 +5,25 @@ export type UserGroup = "Yogyakarta" | "Pekanbaru";
 
 export type User = {
   uid: string;
+  id: string;
   name: string | null;
   email: string | null;
   role: UserRole | null;
   group?: UserGroup | null;
-  createdAt: Timestamp | string | null;
+  createdAt: Timestamp | null;
+};
+
+export type Message = {
+  id: string;
+  text: string;
+  senderId: string;
+  timestamp: Timestamp;
+};
+
+export type Chat = {
+  id: string;
+  participants: string[];
+  participantNames: { [key: string]: string };
+  lastMessageText?: string;
+  lastMessageTimestamp?: Timestamp;
 };

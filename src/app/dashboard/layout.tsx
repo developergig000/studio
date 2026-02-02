@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Loader2, LogOut, User, Settings, Users } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -71,6 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname === '/dashboard/head/user-management') return 'User Management';
     if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
     if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
+    if (pathname.startsWith('/dashboard/chat')) return 'Obrolan';
     return user.role === 'HEAD_SALES' ? 'My Dashboard' : 'My Profile';
   };
   
@@ -99,14 +100,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <Link href="/dashboard/head/user-management"><Users />User Management</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/chat')}>
+                                <Link href="/dashboard/chat"><MessageSquare />Obrolan</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                     </>
                 )}
                 {user.role === 'SALES' && (
-                     <SidebarMenuItem>
-                        <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales')}>
-                            <Link href="/dashboard/sales"><User />My Profile</Link>
-                        </SidebarMenuButton>
-                    </SidebarMenuItem>
+                     <>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales')}>
+                                <Link href="/dashboard/sales"><User />My Profile</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/chat')}>
+                                <Link href="/dashboard/chat"><MessageSquare />Obrolan</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                     </>
                 )}
             </SidebarMenu>
         </SidebarContent>
