@@ -1,56 +1,94 @@
 'use client';
 
 import * as React from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { collection, getDocs, setDoc, doc, serverTimestamp, query, limit } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import { Loader2 } from 'lucide-react';
 
+import { db, auth } from '@/lib/firebase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
+import type { UserRole } from '@/lib/types';
+
+const usersToSeed = [
+  { name: 'Nadya Galuh Prabandini', role: 'HEAD_SALES' as UserRole, email: 'nadya@msbd.co.id', password: '12345678' },
+  { name: 'Khairunnisa Shultoni Marien', role: 'SALES' as UserRole, email: 'khairunnisa@msbd.co.id', password: '12345678' },
+  { name: 'Sika Harum Al Humairo', role: 'SALES' as UserRole, email: 'sika@msbd.co.id', password: '12345678' },
+  { name: 'Rika Saputri Anggraini', role: 'SALES' as UserRole, email: 'rika@msbd.co.id', password: '12345678' },
+  { name: 'Dimas Ananda Nugroho', role: 'SALES' as UserRole, email: 'dimas@msbd.co.id', password: '12345678' },
+];
 
 export default function SeedPage() {
   const { toast } = useToast();
   const [isSeeding, setIsSeeding] = React.useState(false);
-  const [status, setStatus] = React.useState('Ready to seed database.');
+  const [status, setStatus] = React.useState('Ready to seed database with initial users.');
 
   const handleSeed = async () => {
     setIsSeeding(true);
-    setStatus('Calling seed function... Please wait.');
-    toast({ title: 'Seeding database...', description: 'This may take a moment.' });
+    setStatus('Checking if database is already seeded...');
+    toast({ title: 'Starting Seeding Process...', description: 'Please wait.' });
 
     try {
-      // Let Firebase automatically discover the initialized app instance.
-      const functions = getFunctions();
-      const seedInitialUsers = httpsCallable(functions, 'seedInitialUsers');
-      const result = await seedInitialUsers();
-      
-      const data = result.data as { message: string };
+      const usersRef = collection(db, 'users');
+      const q = query(usersRef, limit(1));
+      const querySnapshot = await getDocs(q);
 
-      setStatus(`Seeding complete: ${data.message}`);
+      if (!querySnapshot.empty) {
+        const message = 'Database already contains users. Seeding aborted.';
+        setStatus(message);
+        toast({
+          variant: 'destructive',
+          title: 'Seeding Not Required',
+          description: message,
+        });
+        setIsSeeding(false);
+        return;
+      }
+      
+      setStatus(`Seeding ${usersToSeed.length} users...`);
+      for (const userData of usersToSeed) {
+        setStatus(`Creating user: ${userData.email}`);
+        // Create user in Firebase Auth
+        const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+        const { user } = userCredential;
+        
+        // Create user document in Firestore
+        await setDoc(doc(db, 'users', user.uid), {
+          id: user.uid,
+          name: userData.name,
+          email: userData.email,
+          role: userData.role,
+          createdAt: serverTimestamp(),
+        });
+        setStatus(`Successfully created ${userData.email}`);
+      }
+
+      // Sign out the last created user to ensure a clean state
+      await signOut(auth);
+
+      const successMessage = `Successfully seeded ${usersToSeed.length} users. You can now log in.`;
+      setStatus(successMessage);
       toast({
         title: 'Seeding Successful',
-        description: data.message,
+        description: successMessage,
       });
 
     } catch (error: any) {
       console.error('Seeding error:', error);
-      
-      // Provide more details for HttpsError from Cloud Functions
-      if (error.code && error.details) {
-        setStatus(`Seeding failed: ${error.message} (Code: ${error.code})`);
-        toast({
-          variant: 'destructive',
-          title: `Seeding Failed: ${error.code}`,
-          description: error.message,
-        });
-      } else {
-        setStatus(`Seeding failed: ${error.message}`);
-        toast({
-          variant: 'destructive',
-          title: 'Seeding Failed',
-          description: error.message || 'An unknown error occurred.',
-        });
+      const errorMessage = error.message || 'An unknown error occurred.';
+      setStatus(`Seeding failed: ${errorMessage}`);
+      toast({
+        variant: 'destructive',
+        title: 'Seeding Failed',
+        description: errorMessage,
+      });
+      // Attempt to sign out in case of partial failure
+      try {
+        await signOut(auth);
+      } catch (signOutError) {
+        console.error("Failed to sign out after seeding error:", signOutError);
       }
     } finally {
       setIsSeeding(false);
@@ -61,9 +99,9 @@ export default function SeedPage() {
     <main className="flex min-h-screen w-full items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>Database Seeding</CardTitle>
+          <CardTitle>Database Seeding (Client-Side)</CardTitle>
           <CardDescription>
-            Use this tool to populate the Firestore database with initial user accounts for development purposes.
+            Click the button to populate the Firestore database with initial user accounts for development. This will only run if the 'users' collection is empty.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -79,9 +117,6 @@ export default function SeedPage() {
             {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Seed Initial Users
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            This action calls the `seedInitialUsers` Cloud Function.
-          </p>
            <div className="mt-4 text-center text-sm">
               <Link href="/login" className="underline">
                 Back to Login
