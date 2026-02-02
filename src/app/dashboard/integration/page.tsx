@@ -29,7 +29,8 @@ export default function IntegrationPage() {
         try {
           // Try to parse the error response as JSON
           errorData = await response.json();
-          errorMessage = errorData.message || JSON.stringify(errorData);
+          // The proxy sends a detailed `error` field, let's prioritize that.
+          errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
         } catch (e) {
           // If JSON parsing fails, it might be plain text
           try {
@@ -131,9 +132,9 @@ export default function IntegrationPage() {
                     <CardTitle>WAHA Service</CardTitle>
                 </div>
                 <CardDescription>
-                   Performs a real-time test to ensure the WAHA (WhatsApp HTTP API) service is reachable via a secure proxy. Credentials are managed via .env.local.
+                   Performs a real-time test to ensure the WAHA (WhatsApp HTTP API) service is reachable via a secure proxy. Credentials are managed via .env or .env.local.
                 </CardDescription>
-            </CardHeader>
+            </Header>
             <CardContent className="space-y-4">
                 <Button onClick={handlePingWaha} disabled={wahaStatus === 'loading'}>
                     {wahaStatus === 'loading' ? (
