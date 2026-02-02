@@ -48,12 +48,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   
   React.useEffect(() => {
     if (user && user.role) {
-      if (pathname.startsWith('/dashboard/head') && user.role !== 'HEAD_SALES') {
+      // If a user is a SALES role, they cannot access HEAD_SALES pages.
+      if (user.role === 'SALES' && pathname.startsWith('/dashboard/head')) {
         router.replace('/'); 
       }
-      if (pathname.startsWith('/dashboard/sales') && user.role !== 'SALES') {
-        router.replace('/');
-      }
+      // HEAD_SALES can access all pages, so no other rule is needed.
     }
   }, [user, pathname, router]);
 
@@ -104,6 +103,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/chat')}>
                                 <Link href="/dashboard/chat"><MessageSquare />Obrolan</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales/waha')}>
+                                <Link href="/dashboard/sales/waha"><QrCode />Sesi WhatsApp</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </>
