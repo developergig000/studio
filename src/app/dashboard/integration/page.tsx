@@ -134,7 +134,7 @@ export default function IntegrationPage() {
                 <CardDescription>
                    Performs a real-time test to ensure the WAHA (WhatsApp HTTP API) service is reachable via a secure proxy. Credentials are managed via .env or .env.local.
                 </CardDescription>
-            </Header>
+            </CardHeader>
             <CardContent className="space-y-4">
                 <Button onClick={handlePingWaha} disabled={wahaStatus === 'loading'}>
                     {wahaStatus === 'loading' ? (
