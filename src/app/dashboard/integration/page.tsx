@@ -29,8 +29,12 @@ export default function IntegrationPage() {
         try {
           // Try to parse the error response as JSON
           errorData = await response.json();
-          // The proxy sends a detailed `error` field, let's prioritize that.
-          errorMessage = errorData.error || errorData.message || JSON.stringify(errorData);
+          // The proxy now sends a more detailed error, let's use it.
+          if (errorData.proxy_error) {
+            errorMessage = `Proxy Error: ${errorData.proxy_error}. Failed to connect to ${errorData.target_url}. Please check if the service is running and the URL in your .env file is correct.`;
+          } else {
+            errorMessage = errorData.message || JSON.stringify(errorData);
+          }
         } catch (e) {
           // If JSON parsing fails, it might be plain text
           try {
@@ -51,11 +55,12 @@ export default function IntegrationPage() {
 
     } catch (error: any) {
       setWahaStatus('error');
-      let message = 'Gagal terhubung ke proxy API. Periksa koneksi internet Anda dan pastikan server aplikasi berjalan.';
+      // This catch block handles cases where the fetch call to our *own* proxy fails,
+      // which usually indicates a client-side network issue or server misconfiguration.
+      let message = 'Failed to connect to the API proxy. Check your internet connection and ensure the application server is running.';
       
       if (error.message) {
-        // This will typically catch network errors like 'Failed to fetch'
-        message = `Gagal melakukan fetch ke proxy API: ${error.message}.`;
+        message = `Failed to fetch from the API proxy: ${error.message}.`;
       }
       setWahaErrorMessage(message);
     }

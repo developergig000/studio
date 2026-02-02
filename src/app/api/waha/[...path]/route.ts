@@ -40,10 +40,10 @@ async function handler(
     );
   }
 
-  try {
-    // Construct the full target URL to the actual WAHA service.
-    const targetUrl = `${wahaApiUrl}/${path.join('/')}`;
+  // Construct the full target URL to the actual WAHA service.
+  const targetUrl = `${wahaApiUrl}/${path.join('/')}`;
 
+  try {
     const headers = new Headers(req.headers);
     // Add the required API key for WAHA. This is kept on the server and never exposed to the client.
     headers.set('X-Api-Key', wahaApiKey);
@@ -68,10 +68,14 @@ async function handler(
 
   } catch (error: any) {
     console.error('WAHA Proxy Error:', error);
-    return NextResponse.json(
-      { message: 'An internal error occurred while proxying the request to WAHA.', error: error.message },
-      { status: 502 } // Bad Gateway
-    );
+    // Provide a more structured and informative error response
+    const errorMessage = error.cause?.code || error.message || 'An unknown network error occurred.';
+    const errorDetails = {
+        message: 'An internal error occurred while proxying the request to WAHA.',
+        proxy_error: errorMessage,
+        target_url: targetUrl,
+    };
+    return NextResponse.json(errorDetails, { status: 502 }); // Bad Gateway
   }
 }
 
