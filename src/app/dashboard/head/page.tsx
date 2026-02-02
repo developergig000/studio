@@ -42,7 +42,7 @@ function UserProfileCard({ user }: { user: User | null }) {
           </Avatar>
           <div>
             <CardTitle className="font-headline text-3xl">{user.name}</CardTitle>
-            <Badge variant="secondary">{user.role}</Badge>
+            <Badge variant="default">{user.role}</Badge>
           </div>
         </div>
       </CardHeader>

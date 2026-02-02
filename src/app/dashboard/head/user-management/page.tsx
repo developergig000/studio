@@ -71,6 +71,7 @@ export default function UserManagementPage() {
         const data = doc.data();
         return {
           uid: doc.id,
+          id: doc.id,
           name: data.name,
           email: data.email,
           role: data.role,
@@ -301,11 +302,13 @@ export default function UserManagementPage() {
                         <TableCell className="font-medium">{user.name}</TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                           <Badge variant={user.role === 'HEAD_SALES' ? 'default' : 'secondary'}>
+                           <Badge variant={user.role === 'HEAD_SALES' ? 'default' : 'outline'}>
                             {user.role}
                           </Badge>
                         </TableCell>
-                        <TableCell>{user.group || 'N/A'}</TableCell>
+                        <TableCell>
+                          {user.group ? <Badge variant="secondary">{user.group}</Badge> : 'N/A'}
+                        </TableCell>
                         <TableCell>
                           {user.createdAt ? format((user.createdAt as Timestamp).toDate(), 'PP') : 'N/A'}
                         </TableCell>
