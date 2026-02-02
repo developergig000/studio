@@ -6,35 +6,57 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Loader2, Server, CheckCircle, XCircle, UserCheck, Plug } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+
 
 export default function IntegrationPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [wahaStatus, setWahaStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [wahaUrl, setWahaUrl] = React.useState('/api/health'); // Default to internal health check for demo
   const [wahaErrorMessage, setWahaErrorMessage] = React.useState<string | null>(null);
 
   const handlePingWaha = async () => {
+    if (!wahaUrl) {
+        toast({
+            variant: 'destructive',
+            title: 'URL Diperlukan',
+            description: 'Silakan masukkan URL layanan WAHA untuk diuji.',
+        });
+        return;
+    }
+
     setWahaStatus('loading');
     setWahaErrorMessage(null);
-    try {
-      // In a real application, you would replace this with the actual URL
-      // of your WAHA service's health check endpoint.
-      const wahaHealthUrl = 'http://your-waha-service-url/health';
-      
-      // We are simulating the API call here as we don't have a real endpoint.
-      // In a real scenario, you would use:
-      // const response = await fetch(wahaHealthUrl);
-      // if (!response.ok) throw new Error('Service not responding');
-      
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // Simulate a successful response
+    try {
+      const response = await fetch(wahaUrl);
+      
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(`Service responded with status ${response.status}: ${errorData || 'No additional details'}`);
+      }
+      
+      // You might want to check the response body for a specific "ok" message
+      // const data = await response.json();
+
       setWahaStatus('success');
 
     } catch (error: any) {
-      // This is how you would handle a real error
       setWahaStatus('error');
-      setWahaErrorMessage(error.message || 'Failed to connect to the WAHA service. Please check the URL and if the service is running.');
+      let message = 'Gagal terhubung ke layanan WAHA. Periksa URL dan pastikan layanan sedang berjalan.';
+      if (error.message) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      }
+      // Specific error for network failure
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        message = `Gagal melakukan fetch ke ${wahaUrl}. Ini mungkin disebabkan oleh masalah CORS, jaringan, atau DNS. Pastikan URL dapat diakses dari browser.`;
+      }
+      setWahaErrorMessage(message);
       console.error("WAHA Ping Error:", error);
     }
   };
@@ -45,14 +67,14 @@ export default function IntegrationPage() {
         return (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Pinging WAHA service...</span>
+            <span>Mencoba menghubungkan ke {wahaUrl}...</span>
           </div>
         );
       case 'success':
         return (
           <div className="flex items-center gap-2 text-green-600">
             <CheckCircle className="h-4 w-4" />
-            <span>Connection to WAHA service successful.</span>
+            <span>Koneksi ke layanan WAHA berhasil.</span>
           </div>
         );
       case 'error':
@@ -60,14 +82,14 @@ export default function IntegrationPage() {
           <div className="flex flex-col gap-2 text-destructive">
             <div className="flex items-center gap-2">
                 <XCircle className="h-4 w-4" />
-                <span>Connection to WAHA service failed.</span>
+                <span>Koneksi ke layanan WAHA gagal.</span>
             </div>
             <p className="text-xs bg-destructive/10 p-2 rounded-md">{wahaErrorMessage}</p>
           </div>
         );
       case 'idle':
       default:
-        return <p className="text-sm text-muted-foreground">Click the button to test the connection to the WAHA service.</p>;
+        return <p className="text-sm text-muted-foreground">Masukkan URL dan klik tombol untuk menguji koneksi ke layanan WAHA.</p>;
     }
   };
 
@@ -114,6 +136,15 @@ export default function IntegrationPage() {
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+                <div className="space-y-2">
+                    <Label htmlFor="waha-url">WAHA Service URL</Label>
+                    <Input 
+                        id="waha-url" 
+                        placeholder="http://your-waha-service.com/health" 
+                        value={wahaUrl}
+                        onChange={(e) => setWahaUrl(e.target.value)}
+                    />
+                </div>
                 <Button onClick={handlePingWaha} disabled={wahaStatus === 'loading'}>
                     {wahaStatus === 'loading' ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
