@@ -43,7 +43,6 @@ export default function IntegrationPage() {
         
         setWahaStatus('error');
         setWahaErrorMessage(finalMessage);
-        console.error("WAHA Ping Error:", finalMessage);
         return; // Stop execution
       }
       
@@ -58,7 +57,6 @@ export default function IntegrationPage() {
         message = `Gagal melakukan fetch ke proxy API: ${error.message}.`;
       }
       setWahaErrorMessage(message);
-      console.error("WAHA Ping Error:", error);
     }
   };
 
