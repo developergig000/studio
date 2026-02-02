@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Loader2, LogIn } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -13,10 +14,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/icons';
-// Firebase imports for seeding
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase/client';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
@@ -28,7 +25,6 @@ export default function LoginPage() {
   const { signIn, user, loading } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isSeeding, setIsSeeding] = React.useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -67,72 +63,10 @@ export default function LoginPage() {
   }
 
   React.useEffect(() => {
-    if (!loading && user && !isSeeding) {
+    if (!loading && user) {
       router.replace('/');
     }
-  }, [user, loading, router, isSeeding]);
-
-  const handleSeed = async () => {
-    setIsSeeding(true);
-    toast({ title: 'Seeding database...', description: 'Please wait.' });
-
-    try {
-      if (auth.currentUser) {
-        await signOut(auth);
-      }
-
-      const seedUsers = [
-        { email: 'head.sales@example.com', password: 'password123', name: 'Head Sales', role: 'HEAD_SALES' },
-        { email: 'sales.user@example.com', password: 'password123', name: 'Sales User', role: 'SALES' },
-      ];
-
-      let usersCreated = 0;
-      let usersSkipped = 0;
-
-      for (const seedUser of seedUsers) {
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, seedUser.email, seedUser.password);
-          const newUser = userCredential.user;
-          await setDoc(doc(db, 'users', newUser.uid), {
-            id: newUser.uid,
-            name: seedUser.name,
-            email: seedUser.email,
-            role: seedUser.role,
-            createdAt: serverTimestamp(),
-          });
-          usersCreated++;
-          await signOut(auth); // Sign out to create the next user
-        } catch (error: any) {
-          if (error.code === 'auth/email-already-in-use') {
-            console.log(`User ${seedUser.email} already exists.`);
-            usersSkipped++;
-          } else {
-            throw error;
-          }
-        }
-      }
-
-      toast({
-        title: 'Seeding Complete',
-        description: `${usersCreated} users created. ${usersSkipped} users skipped. You can now log in with the test accounts.`,
-      });
-
-    } catch (error: any) {
-      console.error('Seeding error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Seeding Failed',
-        description: error.message || 'An unknown error occurred.',
-      });
-    } finally {
-      setIsSeeding(false);
-      // Ensure we are signed out at the end of the process
-      if (auth.currentUser) {
-        await signOut(auth);
-      }
-    }
-  };
-
+  }, [user, loading, router]);
 
   return (
     <Card className="w-full max-w-sm">
@@ -153,7 +87,7 @@ export default function LoginPage() {
                 <FormItem>
                   <FormLabel>Email</FormLabel>
                   <FormControl>
-                    <Input placeholder="head.sales@example.com" {...field} />
+                    <Input placeholder="nadya@msbd.co.id" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -166,37 +100,24 @@ export default function LoginPage() {
                 <FormItem>
                   <FormLabel>Password</FormLabel>
                   <FormControl>
-                    <Input type="password" placeholder="password123" {...field} />
+                    <Input type="password" placeholder="12345678" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isSubmitting || isSeeding}>
+            <Button type="submit" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <LogIn className="mr-2 h-4 w-4" />}
               Sign In
             </Button>
           </form>
         </Form>
-        <div className="relative my-4">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">
-              Or
-            </span>
-          </div>
+        <div className="mt-4 text-center text-sm">
+          Need to seed the database for development?{' '}
+          <Link href="/seed" className="underline">
+            Seed Users
+          </Link>
         </div>
-        <Button
-          variant="secondary"
-          className="w-full"
-          onClick={handleSeed}
-          disabled={isSubmitting || isSeeding}
-        >
-          {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          Seed Database with Test Users
-        </Button>
       </CardContent>
     </Card>
   );
