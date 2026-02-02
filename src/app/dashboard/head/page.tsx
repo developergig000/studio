@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Mail, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import type { Timestamp } from 'firebase/firestore';
 
 function UserProfileCard({ user }: { user: User | null }) {
   if (!user) {
@@ -51,7 +52,7 @@ function UserProfileCard({ user }: { user: User | null }) {
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="h-4 w-4" />
-          <span>Joined: {user.createdAt ? format(new Date(user.createdAt.toString()), 'PPP') : 'N/A'}</span>
+          <span>Joined: {user.createdAt ? format((user.createdAt as Timestamp).toDate(), 'PPP') : 'N/A'}</span>
         </div>
       </CardContent>
     </Card>

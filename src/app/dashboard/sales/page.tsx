@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Mail, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
+import type { Timestamp } from 'firebase/firestore';
 
 export default function SalesDashboardPage() {
   const { user, loading } = useAuth();
@@ -68,7 +69,7 @@ export default function SalesDashboardPage() {
             <Calendar className="h-6 w-6 text-primary" />
             <div>
                 <p className="font-medium">
-                  {user.createdAt ? format(new Date(user.createdAt.toString()), 'PPP') : 'N/A'}
+                  {user.createdAt ? format((user.createdAt as Timestamp).toDate(), 'PPP') : 'N/A'}
                 </p>
                 <p className="text-sm text-muted-foreground">The date you joined the platform.</p>
             </div>
