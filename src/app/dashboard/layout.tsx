@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare, QrCode } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare, QrCode, Plug } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -72,6 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
     if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
     if (pathname.startsWith('/dashboard/chat')) return 'Obrolan';
+    if (pathname.startsWith('/dashboard/integration')) return 'Integrasi';
     return user.role === 'HEAD_SALES' ? 'My Dashboard' : 'My Profile';
   };
   
@@ -110,6 +111,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <Link href="/dashboard/sales/waha"><QrCode />Sesi WhatsApp</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/integration')}>
+                                <Link href="/dashboard/integration"><Plug />Integrasi</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                     </>
                 )}
                 {user.role === 'SALES' && (
@@ -127,6 +133,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales/waha')}>
                                 <Link href="/dashboard/sales/waha"><QrCode />Sesi WhatsApp</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                         <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/integration')}>
+                                <Link href="/dashboard/integration"><Plug />Integrasi</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                      </>
