@@ -35,6 +35,24 @@
           "type": "string",
           "description": "The timestamp when the user account was created.",
           "format": "date-time"
+        },
+        "wahaSessionName": {
+          "type": "string",
+          "description": "The session name for the WAHA integration."
+        },
+        "wahaPhoneNumber": {
+          "type": "string",
+          "description": "The phone number associated with the WAHA session."
+        },
+        "wahaStatus": {
+          "type": "string",
+          "description": "The status of the WAHA session.",
+          "enum": [
+            "disconnected",
+            "loading",
+            "qrcode",
+            "connected"
+          ]
         }
       },
       "required": [

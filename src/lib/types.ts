@@ -2,6 +2,7 @@ import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = "HEAD_SALES" | "SALES";
 export type UserGroup = "Yogyakarta" | "Pekanbaru";
+export type WahaSessionStatus = 'disconnected' | 'loading' | 'qrcode' | 'connected';
 
 export type User = {
   uid: string;
@@ -11,6 +12,9 @@ export type User = {
   role: UserRole | null;
   group?: UserGroup | null;
   createdAt: Timestamp | null;
+  wahaSessionName?: string;
+  wahaPhoneNumber?: string;
+  wahaStatus?: WahaSessionStatus;
 };
 
 export type Message = {
