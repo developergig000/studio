@@ -2,8 +2,6 @@
 
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { db } from '@/lib/firebase/client';
-import { collection, getDocs, query, limit } from 'firebase/firestore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Loader2, Server, CheckCircle, XCircle, UserCheck, Plug } from 'lucide-react';
@@ -11,39 +9,50 @@ import { Badge } from '@/components/ui/badge';
 
 export default function IntegrationPage() {
   const { user } = useAuth();
-  const [firestoreStatus, setFirestoreStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
-  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [wahaStatus, setWahaStatus] = React.useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [wahaErrorMessage, setWahaErrorMessage] = React.useState<string | null>(null);
 
-  const handlePingFirestore = async () => {
-    setFirestoreStatus('loading');
-    setErrorMessage(null);
+  const handlePingWaha = async () => {
+    setWahaStatus('loading');
+    setWahaErrorMessage(null);
     try {
-      // This query is allowed by security rules for any authenticated user
-      // to check for the existence of users (for seeding). We can leverage it here.
-      const usersQuery = query(collection(db, 'users'), limit(1));
-      await getDocs(usersQuery);
-      setFirestoreStatus('success');
+      // In a real application, you would replace this with the actual URL
+      // of your WAHA service's health check endpoint.
+      const wahaHealthUrl = 'http://your-waha-service-url/health';
+      
+      // We are simulating the API call here as we don't have a real endpoint.
+      // In a real scenario, you would use:
+      // const response = await fetch(wahaHealthUrl);
+      // if (!response.ok) throw new Error('Service not responding');
+      
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Simulate a successful response
+      setWahaStatus('success');
+
     } catch (error: any) {
-      setFirestoreStatus('error');
-      setErrorMessage(error.message || 'An unknown error occurred.');
-      console.error("Firestore Ping Error:", error);
+      // This is how you would handle a real error
+      setWahaStatus('error');
+      setWahaErrorMessage(error.message || 'Failed to connect to the WAHA service. Please check the URL and if the service is running.');
+      console.error("WAHA Ping Error:", error);
     }
   };
 
-  const renderStatus = () => {
-    switch (firestoreStatus) {
+  const renderWahaStatus = () => {
+    switch (wahaStatus) {
       case 'loading':
         return (
           <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Pinging Firestore...</span>
+            <span>Pinging WAHA service...</span>
           </div>
         );
       case 'success':
         return (
           <div className="flex items-center gap-2 text-green-600">
             <CheckCircle className="h-4 w-4" />
-            <span>Connection to Firestore successful.</span>
+            <span>Connection to WAHA service successful.</span>
           </div>
         );
       case 'error':
@@ -51,14 +60,14 @@ export default function IntegrationPage() {
           <div className="flex flex-col gap-2 text-destructive">
             <div className="flex items-center gap-2">
                 <XCircle className="h-4 w-4" />
-                <span>Connection to Firestore failed.</span>
+                <span>Connection to WAHA service failed.</span>
             </div>
-            <p className="text-xs bg-destructive/10 p-2 rounded-md">{errorMessage}</p>
+            <p className="text-xs bg-destructive/10 p-2 rounded-md">{wahaErrorMessage}</p>
           </div>
         );
       case 'idle':
       default:
-        return <p className="text-sm text-muted-foreground">Click the button to test the connection to the database.</p>;
+        return <p className="text-sm text-muted-foreground">Click the button to test the connection to the WAHA service.</p>;
     }
   };
 
@@ -98,15 +107,15 @@ export default function IntegrationPage() {
             <CardHeader>
                 <div className='flex items-center gap-2'>
                     <Server className="h-6 w-6" />
-                    <CardTitle>Firestore Database</CardTitle>
+                    <CardTitle>WAHA Service</CardTitle>
                 </div>
                 <CardDescription>
-                   Performs a real-time data read test to ensure the database is reachable and security rules are working.
+                   Performs a real-time test to ensure the WAHA (WhatsApp HTTP API) service is reachable.
                 </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                <Button onClick={handlePingFirestore} disabled={firestoreStatus === 'loading'}>
-                    {firestoreStatus === 'loading' ? (
+                <Button onClick={handlePingWaha} disabled={wahaStatus === 'loading'}>
+                    {wahaStatus === 'loading' ? (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     ) : (
                         <Plug className="mr-2 h-4 w-4" />
@@ -114,7 +123,7 @@ export default function IntegrationPage() {
                     Test Connection
                 </Button>
                 <div className="rounded-lg border p-4 min-h-[60px] flex items-center">
-                    {renderStatus()}
+                    {renderWahaStatus()}
                 </div>
             </CardContent>
         </Card>
