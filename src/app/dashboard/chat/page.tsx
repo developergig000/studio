@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import type { User, Chat, Message } from '@/lib/types';
-import { collection, query, where, getDocs, doc, onSnapshot, orderBy, addDoc, serverTimestamp, setDoc, getDoc, collectionGroup } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, onSnapshot, orderBy, addDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import { Send, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Helper function to get user initials
 function getInitials(name?: string | null) {
@@ -25,7 +26,7 @@ function ChatList({
   onSelectChat,
 }: {
   currentUser: User;
-  onSelectChat: (recipient: User) => void;
+  onSelectChat: (context: { recipient: User; chatId?: string }) => void;
 }) {
   const [users, setUsers] = React.useState<User[]>([]);
   const [chats, setChats] = React.useState<Chat[]>([]);
@@ -35,7 +36,13 @@ function ChatList({
     const fetchChatsAndUsers = async () => {
       setLoading(true);
       if (currentUser.role === 'HEAD_SALES') {
-        // HEAD_SALES sees all conversations
+        // HEAD_SALES: Fetch all SALES users for the dropdown
+        const usersQuery = query(collection(db, 'users'), where('role', '==', 'SALES'));
+        const usersSnapshot = await getDocs(usersQuery);
+        const fetchedUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
+        setUsers(fetchedUsers);
+
+        // HEAD_SALES: Fetch all conversations to monitor
         const chatsQuery = query(collection(db, 'chats'), orderBy('lastMessageTimestamp', 'desc'));
         const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
           const fetchedChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
@@ -44,8 +51,8 @@ function ChatList({
         });
         return unsubscribe;
       } else {
-        // SALES sees other SALES users to chat with
-        const usersQuery = query(collection(db, 'users'), where('role', '==', 'SALES'), where('uid', '!=', currentUser.uid));
+        // SALES: Fetch other SALES users to chat with
+        const usersQuery = query(collection(db, 'users'), where('role', '==', 'SALES'), where('id', '!=', currentUser.uid));
         const snapshot = await getDocs(usersQuery);
         const fetchedUsers = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
         setUsers(fetchedUsers);
@@ -68,61 +75,89 @@ function ChatList({
     return <div className="p-4 text-center">Loading chats...</div>;
   }
 
-  const handleSelectHeadSalesChat = async (chat: Chat) => {
-    // For HEAD_SALES, we need to create a "fake" user object for the recipient to pass to onSelectChat
-    // We pick one of the participants to act as the "recipient" to establish the chat window.
-    // The ChatWindow component will know to display all participants' info.
+  const handleMonitorChatSelect = async (chat: Chat) => {
+    // For HEAD_SALES monitoring a chat.
+    // The recipient is one of the participants, just to populate the header.
+    // The crucial part is passing the correct chatId.
     const recipientId = chat.participants.find(p => p !== currentUser.uid) || chat.participants[0];
     if (recipientId) {
       const userDoc = await getDoc(doc(db, 'users', recipientId));
       if (userDoc.exists()) {
-        onSelectChat({ ...userDoc.data(), uid: userDoc.id } as User);
+        onSelectChat({ recipient: { ...userDoc.data(), uid: userDoc.id } as User, chatId: chat.id });
       }
+    }
+  };
+
+  const handleSalesUserSelect = (userId: string) => {
+    // For HEAD_SALES starting a direct chat with a SALES user.
+    const selectedUser = users.find(u => u.uid === userId);
+    if (selectedUser) {
+      onSelectChat({ recipient: selectedUser });
     }
   };
 
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col gap-2 p-2">
-        {currentUser.role === 'SALES' && users.map(user => (
-          <button
-            key={user.uid}
-            onClick={() => onSelectChat(user)}
-            className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
-          >
-            <Avatar className="h-10 w-10 border">
-              <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-            </Avatar>
-            <div className="flex-1 truncate">
-              <p className="font-semibold">{user.name}</p>
-              <p className="text-sm text-muted-foreground">Sales Team</p>
-            </div>
-          </button>
-        ))}
-        {currentUser.role === 'HEAD_SALES' && chats.map(chat => {
-          return (
-            <button
-              key={chat.id}
-              onClick={() => handleSelectHeadSalesChat(chat)}
-              className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
-            >
-              <Avatar className="h-10 w-10 border">
-                <AvatarFallback className='text-xs'>
-                  {Object.values(chat.participantNames).map(name => getInitials(name)).join('')}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex-1 truncate">
-                <p className="font-semibold">{Object.values(chat.participantNames).join(' & ')}</p>
-                <p className="text-sm text-muted-foreground truncate">{chat.lastMessageText}</p>
-              </div>
-              {chat.lastMessageTimestamp && (
-                <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(chat.lastMessageTimestamp.toDate(), { addSuffix: true })}
-                </p>
-              )}
-            </button>
-          )
-        })}
+      <div className="flex flex-col gap-y-1">
+        {currentUser.role === 'HEAD_SALES' && (
+          <div className="p-2 border-b">
+            <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Start a new chat</h3>
+            <Select onValueChange={handleSalesUserSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a Sales member" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map(user => (
+                  <SelectItem key={user.uid} value={user.uid}>
+                    {user.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+        <div className="p-2">
+            {currentUser.role === 'HEAD_SALES' && <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">All Conversations</h3>}
+            {currentUser.role === 'SALES' && users.map(user => (
+              <button
+                key={user.uid}
+                onClick={() => onSelectChat({ recipient: user })}
+                className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
+              >
+                <Avatar className="h-10 w-10 border">
+                  <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                </Avatar>
+                <div className="flex-1 truncate">
+                  <p className="font-semibold">{user.name}</p>
+                  <p className="text-sm text-muted-foreground">Sales Team</p>
+                </div>
+              </button>
+            ))}
+            {currentUser.role === 'HEAD_SALES' && chats.map(chat => {
+              return (
+                <button
+                  key={chat.id}
+                  onClick={() => handleMonitorChatSelect(chat)}
+                  className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
+                >
+                  <Avatar className="h-10 w-10 border">
+                    <AvatarFallback className='text-xs'>
+                      {Object.values(chat.participantNames).map(name => getInitials(name)).join('')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 truncate">
+                    <p className="font-semibold">{Object.values(chat.participantNames).join(' & ')}</p>
+                    <p className="text-sm text-muted-foreground truncate">{chat.lastMessageText}</p>
+                  </div>
+                  {chat.lastMessageTimestamp && (
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(chat.lastMessageTimestamp.toDate(), { addSuffix: true })}
+                    </p>
+                  )}
+                </button>
+              )
+            })}
+        </div>
       </div>
     </ScrollArea>
   );
@@ -148,22 +183,33 @@ function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessa
 }
 
 // ChatWindow component (Right Panel)
-function ChatWindow({ currentUser, recipient }: { currentUser: User; recipient: User | null }) {
+function ChatWindow({ currentUser, context }: { currentUser: User; context: { recipient: User; chatId?: string } | null }) {
+  const { recipient, chatId: contextChatId } = context || { recipient: null, chatId: undefined };
+  
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [newMessage, setNewMessage] = React.useState('');
   const [chatId, setChatId] = React.useState<string | null>(null);
+  const [isReadOnly, setIsReadOnly] = React.useState(false);
   const [chatHeader, setChatHeader] = React.useState<{name: string, description: string}>({name: '', description: ''});
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (currentUser && recipient) {
+    // Determine the chat ID. Either from context (monitoring) or by creating it (direct chat).
+    if (contextChatId) {
+      setChatId(contextChatId);
+    } else if (currentUser && recipient) {
       const newChatId = [currentUser.uid, recipient.uid].sort().join('_');
       setChatId(newChatId);
+    } else {
+        setChatId(null);
     }
-  }, [currentUser, recipient]);
+  }, [currentUser, recipient, contextChatId]);
 
   React.useEffect(() => {
-    if (!chatId) return;
+    if (!chatId) {
+        setMessages([]);
+        return;
+    };
 
     const messagesQuery = query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc'));
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
@@ -175,26 +221,37 @@ function ChatWindow({ currentUser, recipient }: { currentUser: User; recipient: 
   }, [chatId]);
   
   React.useEffect(() => {
-    const setupHeader = async () => {
-        if (!recipient) return;
-        if(currentUser.role === 'HEAD_SALES' && chatId) {
-            const chatDoc = await getDoc(doc(db, 'chats', chatId));
-            if(chatDoc.exists()) {
-                const chatData = chatDoc.data() as Chat;
-                setChatHeader({
-                    name: Object.values(chatData.participantNames).join(' & '),
-                    description: 'Conversation between Sales Team'
-                });
+    // Set up chat header and read-only status
+    const setupChat = async () => {
+        if (!chatId || !recipient) return;
+        
+        const chatDocRef = doc(db, 'chats', chatId);
+        const chatDoc = await getDoc(chatDocRef);
+
+        if (chatDoc.exists()) {
+            const chatData = chatDoc.data() as Chat;
+            setChatHeader({
+                name: Object.values(chatData.participantNames).join(' & '),
+                description: 'Conversation'
+            });
+            // HEAD_SALES is read-only if not a participant
+            if (currentUser.role === 'HEAD_SALES' && !chatData.participants.includes(currentUser.uid)) {
+                setIsReadOnly(true);
+            } else {
+                setIsReadOnly(false);
             }
         } else {
+            // Chat doesn't exist, must be a new 1-on-1 chat
             setChatHeader({
                 name: recipient.name || '',
-                description: recipient.role === 'SALES' ? 'Sales Team' : ''
+                description: recipient.role || ''
             });
+            setIsReadOnly(false); // New chats are never read-only
         }
     };
-    setupHeader();
-  }, [recipient, chatId, currentUser.role]);
+    
+    setupChat();
+  }, [recipient, chatId, currentUser.role, currentUser.uid]);
 
   // Auto-scroll to bottom
   React.useEffect(() => {
@@ -219,13 +276,23 @@ function ChatWindow({ currentUser, recipient }: { currentUser: User; recipient: 
     await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
     
     const chatRef = doc(db, 'chats', chatId);
-    const participantNames = {
+    const chatDoc = await getDoc(chatRef);
+    let participants = [currentUser.uid, recipient.uid];
+    let participantNames = {
         [currentUser.uid]: currentUser.name || 'Unknown',
         [recipient.uid]: recipient.name || 'Unknown',
     }
+    
+    // If chat exists, merge participants and names to avoid overwriting group chats
+    if (chatDoc.exists()) {
+        const existingData = chatDoc.data();
+        participants = [...new Set([...existingData.participants, ...participants])];
+        participantNames = {...existingData.participantNames, ...participantNames};
+    }
+
 
     await setDoc(chatRef, {
-        participants: [currentUser.uid, recipient.uid],
+        participants: participants.sort(),
         participantNames,
         lastMessageText: newMessage,
         lastMessageTimestamp: serverTimestamp(),
@@ -263,7 +330,7 @@ function ChatWindow({ currentUser, recipient }: { currentUser: User; recipient: 
           ))}
         </div>
       </ScrollArea>
-      { currentUser.role !== 'HEAD_SALES' && (
+      { !isReadOnly && (
         <div className="border-t p-4">
           <form onSubmit={handleSendMessage} className="flex items-center gap-2">
             <Input
@@ -285,7 +352,7 @@ function ChatWindow({ currentUser, recipient }: { currentUser: User; recipient: 
 // Main Page Component
 export default function ChatPage() {
   const { user, loading } = useAuth();
-  const [selectedRecipient, setSelectedRecipient] = React.useState<User | null>(null);
+  const [selectedChatContext, setSelectedChatContext] = React.useState<{ recipient: User; chatId?: string } | null>(null);
 
   if (loading || !user) {
     return (
@@ -300,10 +367,10 @@ export default function ChatPage() {
       <CardContent className="h-full p-0">
         <div className="grid h-full grid-cols-1 md:grid-cols-[320px_1fr]">
           <div className="border-r h-full overflow-y-auto">
-            <ChatList currentUser={user} onSelectChat={setSelectedRecipient} />
+            <ChatList currentUser={user} onSelectChat={setSelectedChatContext} />
           </div>
           <div className="h-full">
-            <ChatWindow currentUser={user} recipient={selectedRecipient} />
+            <ChatWindow currentUser={user} context={selectedChatContext} />
           </div>
         </div>
       </CardContent>
