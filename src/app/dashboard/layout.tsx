@@ -1,0 +1,111 @@
+'use client';
+
+import * as React from 'react';
+import { useAuth } from '@/hooks/use-auth';
+import { usePathname, useRouter } from 'next/navigation';
+import { Loader2, LogOut, Home, User, Users, DatabaseZap } from 'lucide-react';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarProvider,
+  SidebarFooter,
+} from '@/components/ui/sidebar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/icons';
+import Link from 'next/link';
+
+function getInitials(name?: string | null) {
+  return name
+    ?.split(' ')
+    .map(n => n[0])
+    .join('');
+}
+
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const { user, loading, signOut } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  React.useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/login');
+    }
+  }, [user, loading, router]);
+  
+  React.useEffect(() => {
+    if (user && user.role) {
+      if (pathname.startsWith('/dashboard/head') && user.role !== 'HEAD_SALES') {
+        router.replace('/'); 
+      }
+      if (pathname.startsWith('/dashboard/sales') && user.role !== 'SALES') {
+        router.replace('/');
+      }
+    }
+  }, [user, pathname, router]);
+
+
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <SidebarProvider>
+      <Sidebar>
+        <SidebarHeader className="border-b border-sidebar-border">
+          <div className="flex items-center gap-2">
+            <Logo className="h-8 w-8 text-primary" />
+            <span className="text-lg font-headline font-semibold">SalesForceLite</span>
+          </div>
+        </SidebarHeader>
+        <SidebarContent>
+            <SidebarMenu>
+                {user.role === 'HEAD_SALES' && (
+                    <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/head')}>
+                            <Link href="/dashboard/head"><Users />My Team</Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                )}
+                {user.role === 'SALES' && (
+                     <SidebarMenuItem>
+                        <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales')}>
+                            <Link href="/dashboard/sales"><User />My Profile</Link>
+                        </SidebarMenuButton>
+                    </SidebarMenuItem>
+                )}
+                 <SidebarMenuItem>
+                    <SidebarMenuButton asChild>
+                        <Link href="/seed"><DatabaseZap />Seed Users</Link>
+                    </SidebarMenuButton>
+                </SidebarMenuItem>
+            </SidebarMenu>
+        </SidebarContent>
+        <SidebarFooter className="border-t border-sidebar-border p-2">
+            <div className="flex items-center gap-3 p-2">
+                <Avatar>
+                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col overflow-hidden">
+                    <span className="truncate font-semibold">{user.name}</span>
+                    <span className="text-xs text-muted-foreground">{user.email}</span>
+                </div>
+                <Button variant="ghost" size="icon" onClick={signOut} className="ml-auto">
+                    <LogOut className="h-5 w-5"/>
+                </Button>
+            </div>
+        </SidebarFooter>
+      </Sidebar>
+      <SidebarInset>{children}</SidebarInset>
+    </SidebarProvider>
+  );
+}
