@@ -34,7 +34,7 @@ function UserProfileCard({ user }: { user: User | null }) {
     .join('');
 
   return (
-    <Card className="mb-8">
+    <Card>
       <CardHeader>
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16">
@@ -63,9 +63,5 @@ function UserProfileCard({ user }: { user: User | null }) {
 export default function HeadDashboardPage() {
   const { user } = useAuth();
 
-  return (
-    <div className="container mx-auto py-8">
-      <UserProfileCard user={user} />
-    </div>
-  );
+  return <UserProfileCard user={user} />;
 }

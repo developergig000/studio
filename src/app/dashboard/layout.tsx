@@ -14,6 +14,7 @@ import {
   SidebarMenuButton,
   SidebarProvider,
   SidebarFooter,
+  SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -58,9 +59,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
+  const pageTitle = user.role === 'HEAD_SALES' ? 'My Dashboard' : 'My Profile';
+
   return (
     <SidebarProvider>
-      <Sidebar>
+      <Sidebar collapsible="icon">
         <SidebarHeader className="border-b border-sidebar-border">
           <div className="flex items-center gap-2">
             <Logo className="h-8 w-8 text-primary" />
@@ -100,7 +103,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>{children}</SidebarInset>
+      <SidebarInset>
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4 sm:px-6">
+          <SidebarTrigger />
+          <h1 className="text-xl font-semibold">{pageTitle}</h1>
+        </header>
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">{children}</div>
+      </SidebarInset>
     </SidebarProvider>
   );
 }
