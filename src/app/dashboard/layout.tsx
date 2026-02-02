@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { Loader2, LogOut, Home, User, Users, DatabaseZap } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -72,7 +72,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {user.role === 'HEAD_SALES' && (
                     <SidebarMenuItem>
                         <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/head')}>
-                            <Link href="/dashboard/head"><Users />My Team</Link>
+                            <Link href="/dashboard/head"><LayoutDashboard />My Dashboard</Link>
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 )}
@@ -83,11 +83,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         </SidebarMenuButton>
                     </SidebarMenuItem>
                 )}
-                 <SidebarMenuItem>
-                    <SidebarMenuButton asChild>
-                        <Link href="/seed"><DatabaseZap />Seed Users</Link>
-                    </SidebarMenuButton>
-                </SidebarMenuItem>
             </SidebarMenu>
         </SidebarContent>
         <SidebarFooter className="border-t border-sidebar-border p-2">

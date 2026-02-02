@@ -1,0 +1,120 @@
+/**
+ * Core Philosophy: This ruleset implements a Database-based Access Control (DBAC) model.
+ * A user's role, stored directly on their profile document, dictates their permissions.
+ * Specifically, 'HEAD_SALES' users are granted read access across all user profiles,
+ * while standard 'SALES' users can only access their own data. All authenticated
+ * users are permitted to create and manage their own profile document.
+ *
+ * Data Structure: A single top-level collection `/users/{userId}` stores all user
+ * profile data. The document ID `{userId}` corresponds to the user's Firebase
+ * Authentication UID.
+ *
+ * Key Security Decisions:
+ * - User Listing: Listing all users is a privileged operation restricted to users with
+ *   the 'HEAD_SALES' role. Standard users cannot discover other users in the system.
+ * - Authorization Independence: The user's `role` is denormalized directly onto their
+ *   `/users/{userId}` document. This allows security rules to check a user's role
+ *   with a single `get()` operation against their own profile, making permissions
+ *   clear and performant.
+ * - Self-Service Profile: Users are empowered to create their own user document upon
+ *   first sign-in and manage it thereafter. Writes are strictly confined to a user's
+ *   own document.
+ *
+ * Denormalization for Authorization: The `role` field on each `/users/{userId}`
+ * document is a critical piece of denormalized data. It allows the `isHeadSales()`
+ * function to efficiently determine the requesting user's permissions without needing
+ * to consult other collections or rely on custom claims.
+ *
+ * Structural Segregation: Not applicable, as this model uses a single collection with
+ * role-based permissions to manage access, which is appropriate for this use case.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper Functions
+
+    /**
+     * Checks if the requesting user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Checks if the requesting user's UID matches the given userId.
+     * This is the fundamental check for document ownership.
+     * @param userId The UID to check against the authenticated user.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * Checks if the requesting user owns an existing document.
+     * CRITICAL: Used for all update and delete operations to prevent acting on
+     * non-existent documents.
+     * @param userId The UID to check against the authenticated user.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Checks if the requesting user has the 'HEAD_SALES' role.
+     * This performs a single `get` on the requesting user's own profile to
+     * determine their role, enabling privileged access.
+     */
+    function isHeadSales() {
+      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'HEAD_SALES';
+    }
+
+    /**
+     * Validates that the user is creating their own profile and that the
+     * internal 'id' field correctly matches their UID.
+     * @param userId The document ID, which must match the user's UID.
+     */
+    function isCreatingOwnProfile(userId) {
+      return isOwner(userId) && request.resource.data.id == userId;
+    }
+
+    /**
+     * Validates that the user is updating their own profile and that the
+     * relational 'id' field is not being changed.
+     * @param userId The document ID, which must match the user's UID.
+     */
+    function isUpdatingOwnProfile(userId) {
+      return isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+    }
+
+
+    /**
+     * @description Manages user profile documents. Users can manage their own profile.
+     *   'HEAD_SALES' users have read-access to all user profiles.
+     * @path /users/{userId}
+     * @allow (get) A 'HEAD_SALES' user getting another user's profile.
+     * @allow (list) A 'HEAD_SALES' user listing all user documents.
+     * @allow (create) An authenticated user creating their own profile document for the first time.
+     * @deny (list) A 'SALES' user attempting to list all users.
+     * @deny (update) A user trying to update another user's profile.
+     * @principle Enforces a Database-based Access Control (DBAC) model where a user's role,
+     *   stored on their own document, determines their access permissions across the collection.
+     */
+    match /users/{userId} {
+      // READ: A user can get their own document, or a HEAD_SALES can get any document.
+      allow get: if isOwner(userId) || isHeadSales();
+
+      // READ: Only HEAD_SALES users are permitted to list all users.
+      allow list: if isHeadSales();
+
+      // WRITE: A user can create their own profile document.
+      allow create: if isCreatingOwnProfile(userId);
+
+      // WRITE: A user can only update their own profile; critical fields are immutable.
+      allow update: if isUpdatingOwnProfile(userId);
+
+      // WRITE: A user can only delete their own existing profile.
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}

@@ -7,7 +7,6 @@ import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { Loader2, LogIn } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
-import { routeUsersBasedOnRole } from '@/ai/flows/route-users-based-on-role';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -46,11 +45,10 @@ export default function LoginPage() {
         description: 'Redirecting to your dashboard...',
       });
 
-      const { route } = await routeUsersBasedOnRole({ role: userRole });
-      if (route) {
-        router.push(route);
+      if (userRole === 'HEAD_SALES') {
+        router.push('/dashboard/head');
       } else {
-        throw new Error('Could not determine dashboard route.');
+        router.push('/dashboard/sales');
       }
     } catch (error: any) {
       console.error(error);

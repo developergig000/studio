@@ -2,7 +2,6 @@
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { routeUsersBasedOnRole } from '@/ai/flows/route-users-based-on-role';
 import { Loader2 } from 'lucide-react';
 
 export default function HomePage() {
@@ -17,21 +16,17 @@ export default function HomePage() {
     if (!user) {
       router.replace('/login');
     } else if (user.role) {
-      routeUsersBasedOnRole({ role: user.role })
-        .then(({ route }) => {
-          if (route) {
-            router.replace(route);
-          } else {
-            console.error("AI couldn't determine route. Logging out.");
-            signOut();
-            router.replace('/login');
-          }
-        })
-        .catch(error => {
-          console.error('Error with AI routing:', error);
-          signOut();
-          router.replace('/login');
-        });
+      if (user.role === 'HEAD_SALES') {
+        router.replace('/dashboard/head');
+      } else if (user.role === 'SALES') {
+        router.replace('/dashboard/sales');
+      } else {
+        signOut();
+        router.replace('/login');
+      }
+    } else {
+      signOut();
+      router.replace('/login');
     }
   }, [user, loading, router, signOut]);
 

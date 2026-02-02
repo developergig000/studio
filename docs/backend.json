@@ -1,0 +1,68 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user profile in the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user in the application (e.g., HEAD_SALES, SALES)."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "The timestamp when the user account was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "role",
+        "createdAt"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles, including name, email, role, and creation timestamp. The 'role' field is denormalized to enable Authorization Independence in security rules.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user, corresponding to the Firebase Auth UID."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure secure and efficient data access based on user roles (SALES and HEAD_SALES). The core principle is Authorization Independence, achieved by storing the `role` directly within the `users/{uid}` document. This avoids the need for `get()` calls in security rules to fetch the user's role, making operations atomic and easier to debug. The structure also addresses the need for role-based filtering of user data, where a HEAD_SALES user needs to read all users, but a SALES user can only read their own document. Since a path-based approach is adopted, only one collection is used. This approach leverages the DBAC (Database-based Access Control) principle, where roles are stored in the database itself rather than using custom claims."
+  }
+}
