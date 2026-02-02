@@ -14,7 +14,7 @@ export default function SalesDashboardPage() {
 
   if (loading || !user) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex items-center justify-center">
         <Card className="w-full max-w-2xl">
           <CardHeader>
             <div className="flex items-center gap-4">
@@ -40,7 +40,7 @@ export default function SalesDashboardPage() {
     .join('');
 
   return (
-    <div className="flex h-full items-center justify-center">
+    <div className="flex items-center justify-center">
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
