@@ -49,7 +49,16 @@ export default function UserManagementPage() {
     setIsLoading(true);
     try {
       const querySnapshot = await getDocs(collection(db, 'users'));
-      const usersData = querySnapshot.docs.map(doc => doc.data() as User);
+      const usersData = querySnapshot.docs.map((doc): User => {
+        const data = doc.data();
+        return {
+          uid: doc.id,
+          name: data.name,
+          email: data.email,
+          role: data.role,
+          createdAt: data.createdAt,
+        };
+      });
       setUsers(usersData);
     } catch (error: any) {
       toast({
