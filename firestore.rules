@@ -11,7 +11,8 @@
  *
  * Key Security Decisions:
  * - User Listing: Listing all users is a privileged operation restricted to users with
- *   the 'HEAD_SALES' role. Standard users cannot discover other users in the system.
+ *   the 'HEAD_SALES' role. An exception is made to allow checking for the existence
+ *   of any user to enable client-side seeding logic.
  * - Authorization Independence: The user's `role` is denormalized directly onto their
  *   `/users/{userId}` document. This allows security rules to check a user's role
  *   with a single `get()` operation against their own profile, making permissions
@@ -93,7 +94,7 @@ service cloud.firestore {
      *   'HEAD_SALES' users have read-access to all user profiles.
      * @path /users/{userId}
      * @allow (get) A 'HEAD_SALES' user getting another user's profile.
-     * @allow (list) A 'HEAD_SALES' user listing all user documents.
+     * @allow (list) A 'HEAD_SALES' user listing all user documents. Exception for seeding.
      * @allow (create) An authenticated user creating their own profile document for the first time.
      * @deny (list) A 'SALES' user attempting to list all users.
      * @deny (update) A user trying to update another user's profile.
@@ -104,8 +105,9 @@ service cloud.firestore {
       // READ: A user can get their own document, or a HEAD_SALES can get any document.
       allow get: if isOwner(userId) || isHeadSales();
 
-      // READ: Only HEAD_SALES users are permitted to list all users.
-      allow list: if isHeadSales();
+      // READ: HEAD_SALES can list all users. Anyone can check if the collection is empty
+      // for client-side seeding purposes by querying with a limit of 1.
+      allow list: if isHeadSales() || request.query.limit == 1;
 
       // WRITE: A user can create their own profile document.
       allow create: if isCreatingOwnProfile(userId);
