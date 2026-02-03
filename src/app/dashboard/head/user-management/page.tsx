@@ -22,6 +22,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const addFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -356,94 +357,98 @@ export default function UserManagementPage() {
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-6 py-4">
-              <FormField
-                control={editForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="role"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="SALES">SALES</SelectItem>
-                        <SelectItem value="HEAD_SALES">HEAD_SALES</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="group"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Group</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="Yogyakarta">Yogyakarta</SelectItem>
-                        <SelectItem value="Pekanbaru">Pekanbaru</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="wahaSessionName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>WAHA Session Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="session-name-from-waha" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormDescription>
-                      Link an existing WAHA session to avoid re-scanning QR.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="wahaPhoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>WAHA Phone Number</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. 628123456789" {...field} value={field.value ?? ''} />
-                    </FormControl>
-                    <FormDescription>
-                      Optional. Will be auto-updated by the system when the session connects.
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <ScrollArea className="max-h-[60vh] pr-4">
+                  <div className="space-y-6 py-4">
+                      <FormField
+                          control={editForm.control}
+                          name="name"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Full Name</FormLabel>
+                              <FormControl>
+                              <Input {...field} />
+                              </FormControl>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                      <FormField
+                          control={editForm.control}
+                          name="role"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Role</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                  <SelectTrigger>
+                                  <SelectValue />
+                                  </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  <SelectItem value="SALES">SALES</SelectItem>
+                                  <SelectItem value="HEAD_SALES">HEAD_SALES</SelectItem>
+                              </SelectContent>
+                              </Select>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                      <FormField
+                          control={editForm.control}
+                          name="group"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Group</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                  <SelectTrigger>
+                                  <SelectValue />
+                                  </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  <SelectItem value="Yogyakarta">Yogyakarta</SelectItem>
+                                  <SelectItem value="Pekanbaru">Pekanbaru</SelectItem>
+                              </SelectContent>
+                              </Select>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                      <FormField
+                          control={editForm.control}
+                          name="wahaSessionName"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>WAHA Session Name</FormLabel>
+                              <FormControl>
+                              <Input placeholder="session-name-from-waha" {...field} value={field.value ?? ''} />
+                              </FormControl>
+                              <FormDescription>
+                              Link an existing WAHA session to avoid re-scanning QR.
+                              </FormDescription>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                      <FormField
+                          control={editForm.control}
+                          name="wahaPhoneNumber"
+                          render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>WAHA Phone Number</FormLabel>
+                              <FormControl>
+                              <Input placeholder="e.g. 628123456789" {...field} value={field.value ?? ''} />
+                              </FormControl>
+                              <FormDescription>
+                              Optional. Will be auto-updated by the system when the session connects.
+                              </FormDescription>
+                              <FormMessage />
+                          </FormItem>
+                          )}
+                      />
+                  </div>
+              </ScrollArea>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
                 <Button type="submit" disabled={isEditSubmitting}>
