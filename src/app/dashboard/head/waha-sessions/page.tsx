@@ -56,10 +56,10 @@ function normalizeWahaStatus(status: string | undefined): WahaSessionStatus {
 function UserWahaSessionCard({ user, onAction, isActionLoading }: { user: MergedUser; onAction: (userId: string, sessionName: string | undefined, action: 'start' | 'stop' | 'logout') => void; isActionLoading: boolean; }) {
   
   const statusConfig = {
-    disconnected: { Icon: XCircle, color: 'bg-destructive', text: 'Disconnected' },
-    loading: { Icon: Loader2, color: 'bg-yellow-500 animate-spin', text: 'Loading...' },
-    qrcode: { Icon: QrCodeIcon, color: 'bg-blue-500', text: 'Awaiting QR Scan' },
-    connected: { Icon: CheckCircle, color: 'bg-green-500', text: 'Connected' },
+    disconnected: { Icon: XCircle, color: 'bg-destructive', text: 'Terputus' },
+    loading: { Icon: Loader2, color: 'bg-yellow-500 animate-spin', text: 'Memuat...' },
+    qrcode: { Icon: QrCodeIcon, color: 'bg-blue-500', text: 'Tunggu Pindai QR' },
+    connected: { Icon: CheckCircle, color: 'bg-green-500', text: 'Terhubung' },
   };
 
   const status = user.liveWahaStatus;
@@ -93,7 +93,7 @@ function UserWahaSessionCard({ user, onAction, isActionLoading }: { user: Merged
         
         {status === 'qrcode' && user.wahaQrCode ? (
           <div className="flex flex-col items-center justify-center rounded-lg border bg-muted p-4">
-            <p className="mb-2 text-center text-sm text-muted-foreground">Scan with WhatsApp on your phone</p>
+            <p className="mb-2 text-center text-sm text-muted-foreground">Pindai dengan WhatsApp di ponsel Anda</p>
             <Image src={user.wahaQrCode} alt="WhatsApp QR Code" width={256} height={256} className="rounded-md" />
           </div>
         ) : null}
@@ -102,12 +102,12 @@ function UserWahaSessionCard({ user, onAction, isActionLoading }: { user: Merged
       <CardFooter className="flex gap-2">
         {status === 'disconnected' ? (
           <Button onClick={() => onAction(user.uid, user.wahaSessionName, 'start')} disabled={isActionLoading} className="w-full">
-            {isActionLoading ? <Loader2 className="animate-spin" /> : <Power />} Start Session
+            {isActionLoading ? <Loader2 className="animate-spin" /> : <Power />} Mulai Sesi
           </Button>
         ) : (
           <>
             <Button onClick={() => onAction(user.uid, user.wahaSessionName, 'stop')} disabled={isActionLoading} variant="outline" className="w-full">
-              {isActionLoading ? <Loader2 className="animate-spin" /> : <PowerOff />} Stop
+              {isActionLoading ? <Loader2 className="animate-spin" /> : <PowerOff />} Berhenti
             </Button>
              <Button onClick={() => onAction(user.uid, user.wahaSessionName, 'logout')} disabled={isActionLoading} variant="destructive" className="w-full">
               {isActionLoading ? <Loader2 className="animate-spin" /> : <LogOut />} Logout
@@ -145,7 +145,7 @@ export default function WahaSessionsPage() {
         console.error("Error fetching users:", error);
         toast({
             variant: 'destructive',
-            title: 'Failed to load users',
+            title: 'Gagal memuat pengguna',
             description: error.message
         });
         setIsUsersLoading(false);
@@ -165,10 +165,10 @@ export default function WahaSessionsPage() {
           setLiveSessions(result.data);
           setApiError(null);
         } else {
-          setApiError(result.hint || 'Failed to fetch session data from WAHA.');
+          setApiError(result.hint || 'Gagal mengambil data sesi dari WAHA.');
         }
       } catch (err) {
-        setApiError('Could not connect to the application server to get WAHA status.');
+        setApiError('Tidak dapat terhubung ke server aplikasi untuk mendapatkan status WAHA.');
       }
     };
 
@@ -196,7 +196,7 @@ export default function WahaSessionsPage() {
       const result: WahaApiResponse = await res.json();
       
       if (!result.ok) {
-        throw new Error(result.hint || 'Failed to perform WAHA action.');
+        throw new Error(result.hint || 'Gagal melakukan aksi WAHA.');
       }
       
       const userRef = doc(db, 'users', userId);
@@ -212,15 +212,15 @@ export default function WahaSessionsPage() {
             wahaQrCode: wahaData.qrcode?.qr,
           }, { merge: true });
         
-        toast({ title: 'Session Starting', description: 'Please scan the QR code with WhatsApp.' });
+        toast({ title: 'Sesi Dimulai', description: 'Silakan pindai kode QR dengan WhatsApp.' });
       } else {
-        // For stop/logout, only clear the QR code and reset status. Do NOT clear phone number.
+        // For stop/logout, also clear the QR code and reset status. Do NOT clear phone number.
         await updateDoc(userRef, { wahaQrCode: null, wahaStatus: 'disconnected' });
-        toast({ title: `Session ${action === 'stop' ? 'Stopped' : 'Logged Out'}` });
+        toast({ title: `Sesi ${action === 'stop' ? 'Dihentikan' : 'Logout'}` });
       }
 
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Action Failed', description: err.message });
+      toast({ variant: 'destructive', title: 'Aksi Gagal', description: err.message });
     } finally {
       setIsActionLoading(false);
     }
@@ -265,8 +265,8 @@ export default function WahaSessionsPage() {
       // 1. We have a valid, non-empty `liveNumber` from WAHA.
       // 2. The `liveNumber` is different from what's already stored.
       // This prevents a `null` or empty `liveNumber` (from a disconnected session)
-      // from overwriting a valid number that was entered manually.
-      if (liveNumber && liveNumber !== storedNumber) {
+      // from overwriting a valid number that was entered manually or previously synced.
+      if (liveNumber && liveNumber.trim() !== '' && liveNumber !== storedNumber) {
         const userRef = doc(db, 'users', user.uid);
         updateDoc(userRef, { wahaPhoneNumber: liveNumber });
       }
@@ -280,17 +280,17 @@ export default function WahaSessionsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="font-headline text-2xl font-semibold tracking-tight">
-          WAHA Session Management
+          Manajemen Sesi WAHA
         </h1>
         <p className="text-muted-foreground">
-          Monitor and manage WhatsApp sessions for all SALES users in real-time.
+          Pantau dan kelola sesi WhatsApp untuk semua pengguna SALES secara real-time.
         </p>
       </div>
       
       {apiError && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>WAHA Connection Error</AlertTitle>
+            <AlertTitle>Error Koneksi WAHA</AlertTitle>
             <AlertDescription>{apiError}</AlertDescription>
           </Alert>
       )}
@@ -308,9 +308,9 @@ export default function WahaSessionsPage() {
       ) : displayUsers.length === 0 ? (
         <Alert>
           <Smartphone className="h-4 w-4" />
-          <AlertTitle>No SALES Users Found</AlertTitle>
+          <AlertTitle>Tidak Ada Pengguna SALES</AlertTitle>
           <AlertDescription>
-            There are no users with the 'SALES' role to manage. You can add them in the User Management page.
+            Tidak ada pengguna dengan peran 'SALES' untuk dikelola. Anda dapat menambahkan mereka di halaman Manajemen Pengguna.
           </AlertDescription>
         </Alert>
       ) : (
