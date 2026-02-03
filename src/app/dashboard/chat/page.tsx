@@ -36,6 +36,8 @@ function ChatList({
   isLoading,
   error,
   loadingMessage,
+  searchTerm,
+  onSearchChange,
 }: {
   salesUsers: User[];
   onSelectSalesUser: (userId: string) => void;
@@ -45,6 +47,8 @@ function ChatList({
   isLoading: boolean;
   error: string | null;
   loadingMessage: string | null;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
 }) {
   return (
     <ScrollArea className="h-full">
@@ -67,6 +71,18 @@ function ChatList({
 
         <div className="p-2">
           <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Obrolan WhatsApp</h3>
+          
+          <div className="relative mb-2 px-2">
+            <Search className="absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Cari kontak..."
+              value={searchTerm}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="h-9 w-full pl-9"
+              disabled={!selectedSalesUser || isLoading}
+            />
+          </div>
+          
           {isLoading && (
             <div className="flex flex-col items-center justify-center p-4 text-center">
               <Loader2 className="animate-spin" />
@@ -75,7 +91,9 @@ function ChatList({
           )}
           {error && <Alert variant="destructive" className="m-2"><AlertTriangle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
           {!isLoading && !error && chats.length === 0 && selectedSalesUser && (
-            <p className="p-4 text-sm text-center text-muted-foreground">Tidak ada obrolan WhatsApp yang ditemukan untuk pengguna ini.</p>
+             <p className="p-4 text-sm text-center text-muted-foreground">
+              {searchTerm ? 'Tidak ada kontak yang cocok.' : 'Tidak ada obrolan WhatsApp yang ditemukan untuk pengguna ini.'}
+            </p>
           )}
           {chats.map(chat => (
             <button
@@ -139,7 +157,6 @@ function MessageBubble({ message }: { message: WahaMessage }) {
                 break;
         }
         
-        // The body is treated as a caption, but not if it's just the file placeholder
         const caption = message.body && !message.body.startsWith('<file:') ? message.body : null;
 
         return (
@@ -191,12 +208,11 @@ function ChatWindow({
 }) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
   React.useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !searchTerm) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isLoading]);
+  }, [messages, isLoading, searchTerm]);
 
   if (!chat) {
     return (
@@ -271,6 +287,8 @@ export default function ChatPage() {
 
   const [messageSearchTerm, setMessageSearchTerm] = React.useState('');
   const [filteredMessages, setFilteredMessages] = React.useState<WahaMessage[]>([]);
+  const [chatSearchTerm, setChatSearchTerm] = React.useState('');
+  const [filteredChats, setFilteredChats] = React.useState<WahaChat[]>([]);
 
   React.useEffect(() => {
     async function fetchSalesUsers() {
@@ -291,6 +309,7 @@ export default function ChatPage() {
       setSelectedChat(null);
       setWahaMessages([]);
       setChatsError(null);
+      setChatSearchTerm('');
 
       if (!selectedSalesUser) return;
       
@@ -316,21 +335,18 @@ export default function ChatPage() {
           const result: WahaApiResponse = await response.json();
 
           if (result.ok) {
-            // SUCCESS: Response is ok, now check data format
             if (Array.isArray(result.data)) {
                 const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
                 setWahaChats(sortedChats);
             } else {
-                // Response is OK, but data is not an array. Could be an empty state for a new user.
                 setWahaChats([]);
             }
             setChatsError(null);
             setLoadingMessage(null);
             setChatsLoading(false);
-            return; // Exit loop on success
+            return;
           }
 
-          // HANDLE ERRORS AND RETRIES
           if (!result.ok && result.status === 404) {
              if (attempt === MAX_RETRIES) {
               throw new Error(`Sesi '${sessionName}' tidak merespon setelah beberapa kali percobaan. Pastikan sesi berjalan dengan benar di layanan WAHA.`);
@@ -346,7 +362,7 @@ export default function ChatPage() {
              console.log('Fetch for chats aborted.');
              return;
            }
-           if (err instanceof SyntaxError) { // Catches JSON parsing errors
+           if (err instanceof SyntaxError) {
             setChatsError("Gagal mem-parsing respons dari WAHA. Layanan mungkin sedang tidak aktif atau mengembalikan format yang tidak valid.");
            } else {
             setChatsError(err.message);
@@ -379,7 +395,7 @@ export default function ChatPage() {
         const result: WahaApiResponse = await response.json();
         
         if (result.ok && Array.isArray(result.data)) {
-           setWahaMessages(result.data.reverse()); // WAHA often returns newest first
+           setWahaMessages(result.data.reverse());
         } else {
           let errorMessage = result.hint || 'Terjadi kesalahan tidak dikenal saat mengambil pesan.';
           if (result.data && (result.data.message || result.data.error)) {
@@ -408,6 +424,18 @@ export default function ChatPage() {
     }
   }, [messageSearchTerm, wahaMessages]);
 
+  React.useEffect(() => {
+    if (!chatSearchTerm) {
+      setFilteredChats(wahaChats);
+    } else {
+      const lowercasedQuery = chatSearchTerm.toLowerCase();
+      const filtered = wahaChats.filter(chat =>
+        chat.name?.toLowerCase().includes(lowercasedQuery)
+      );
+      setFilteredChats(filtered);
+    }
+  }, [chatSearchTerm, wahaChats]);
+
 
   const handleSelectSalesUser = (userId: string) => {
     const user = salesUsers.find(u => u.uid === userId) || null;
@@ -417,7 +445,7 @@ export default function ChatPage() {
   const handleSelectChat = (chatId: string) => {
     const chat = wahaChats.find(c => c.id === chatId) || null;
     setSelectedChat(chat);
-    setMessageSearchTerm(''); // Reset search on new chat selection
+    setMessageSearchTerm('');
   }
 
   if (authLoading) {
@@ -432,16 +460,18 @@ export default function ChatPage() {
     <Card className="h-[calc(100vh_-_100px)] w-full overflow-hidden">
       <CardContent className="h-full p-0">
         <div className="grid h-full grid-cols-1 md:grid-cols-[320px_1fr]">
-          <div className="border-r h-full overflow-y-auto">
+          <div className="border-r h-full overflow-hidden">
             <ChatList
               salesUsers={salesUsers}
               onSelectSalesUser={handleSelectSalesUser}
               selectedSalesUser={selectedSalesUser}
-              chats={wahaChats}
+              chats={filteredChats}
               onSelectChat={handleSelectChat}
               isLoading={chatsLoading}
               error={chatsError}
               loadingMessage={loadingMessage}
+              searchTerm={chatSearchTerm}
+              onSearchChange={setChatSearchTerm}
             />
           </div>
           <div className="h-full overflow-hidden">
