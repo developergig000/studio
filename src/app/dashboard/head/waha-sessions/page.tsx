@@ -200,8 +200,8 @@ export default function WahaSessionsPage() {
         
         toast({ title: 'Session Starting', description: 'Please scan the QR code with WhatsApp.' });
       } else {
-        // For stop/logout, we can clear the QR code. The live status will update via polling.
-        await updateDoc(userRef, { wahaQrCode: null });
+        // For stop/logout, clear the QR code and reset the status to disconnected.
+        await updateDoc(userRef, { wahaQrCode: null, wahaStatus: 'disconnected' });
         toast({ title: `Session ${action === 'stop' ? 'Stopped' : 'Logged Out'}` });
       }
 
