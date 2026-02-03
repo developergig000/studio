@@ -1,12 +1,12 @@
 'use client';
 
 import * as React from 'react';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, setDoc } from 'firebase/firestore';
 import Image from 'next/image';
-import { Loader2, Power, PowerOff, LogOut, CheckCircle, XCircle, Smartphone, QrCodeIcon } from 'lucide-react';
+import { Loader2, Power, PowerOff, LogOut, CheckCircle, XCircle, Smartphone, QrCodeIcon, AlertTriangle } from 'lucide-react';
 
 import { db } from '@/lib/firebase/client';
-import type { User } from '@/lib/types';
+import type { User, WahaSessionStatus } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -16,163 +16,106 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
+import { WahaApiResponse } from '@/lib/wahaClient';
+
+// --- Helper Functions and Types ---
 
 function getInitials(name?: string | null) {
   return name?.split(' ').map((n) => n[0]).join('') || 'U';
 }
 
-function UserWahaSessionCard({ user }: { user: User }) {
-  const { toast } = useToast();
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+type WahaSession = {
+  name: string;
+  status: WahaSessionStatus;
+  pushName?: string;
+  me?: {
+    user: string;
+  }
+};
 
-  const handleAction = async (action: 'start' | 'stop' | 'logout') => {
-    setIsLoading(true);
-    setError(null);
+type MergedUser = User & {
+  liveWahaStatus: WahaSessionStatus;
+  liveWahaPhoneNumber?: string | null;
+};
 
-    try {
-      const res = await fetch('/api/integrations/waha/action', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action,
-          userId: user.uid,
-          sessionName: user.wahaSessionName,
-        }),
-      });
 
-      const result = await res.json();
+// --- Child Component: UserWahaSessionCard ---
 
-      if (!res.ok || !result.ok) {
-        throw new Error(result.hint || 'Failed to perform WAHA action.');
-      }
-      
-      // The API call to WAHA was successful. Now, update Firestore based on the action.
-      // The actual status change (e.g., to 'connected') should ideally be handled by a webhook from WAHA.
-      // Here, we optimistically update the UI.
-      const userRef = doc(db, 'users', user.uid);
-      if (action === 'start') {
-        const wahaData = result.data;
-        if (wahaData?.status === 'qrcode' && wahaData?.qrcode?.qr) {
-          await updateDoc(userRef, {
-            wahaSessionName: wahaData.name,
-            wahaStatus: 'qrcode',
-            wahaQrCode: wahaData.qrcode.qr,
-          });
-          toast({ title: 'Session Starting', description: 'Please scan the QR code with WhatsApp.' });
-        }
-      } else if (action === 'stop' || action === 'logout') {
-        await updateDoc(userRef, {
-          wahaStatus: 'disconnected',
-          wahaQrCode: null,
-          wahaPhoneNumber: null,
-        });
-        toast({ title: `Session ${action === 'stop' ? 'Stopped' : 'Logged Out'}` });
-      }
-    } catch (err: any) {
-      const errorMessage = err.message || 'An unknown error occurred.';
-      setError(errorMessage);
-      toast({
-        variant: 'destructive',
-        title: 'Action Failed',
-        description: errorMessage,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+function UserWahaSessionCard({ user, onAction, isActionLoading }: { user: MergedUser; onAction: (userId: string, sessionName: string | undefined, action: 'start' | 'stop' | 'logout') => void; isActionLoading: boolean; }) {
   
-  const status = user.wahaStatus || 'disconnected';
-
   const statusConfig = {
-    disconnected: {
-      Icon: XCircle,
-      color: 'bg-destructive',
-      text: 'Disconnected',
-    },
-    loading: {
-      Icon: Loader2,
-      color: 'bg-yellow-500 animate-spin',
-      text: 'Loading...',
-    },
-    qrcode: {
-      Icon: QrCodeIcon,
-      color: 'bg-blue-500',
-      text: 'Awaiting QR Scan',
-    },
-    connected: {
-      Icon: CheckCircle,
-      color: 'bg-green-500',
-      text: 'Connected',
-    },
+    disconnected: { Icon: XCircle, color: 'bg-destructive', text: 'Disconnected' },
+    loading: { Icon: Loader2, color: 'bg-yellow-500 animate-spin', text: 'Loading...' },
+    qrcode: { Icon: QrCodeIcon, color: 'bg-blue-500', text: 'Awaiting QR Scan' },
+    connected: { Icon: CheckCircle, color: 'bg-green-500', text: 'Connected' },
   };
 
+  const status = user.liveWahaStatus;
   const { Icon, color, text } = statusConfig[status];
 
   return (
     <Card className="flex flex-col">
       <CardHeader>
         <div className="flex items-center gap-4">
-            <Avatar className="h-12 w-12">
-                <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-            </Avatar>
-            <div>
-                <CardTitle>{user.name}</CardTitle>
-                <CardDescription>{user.email}</CardDescription>
-            </div>
+          <Avatar className="h-12 w-12">
+            <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+          </Avatar>
+          <div>
+            <CardTitle>{user.name}</CardTitle>
+            <CardDescription>{user.email}</CardDescription>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex-grow space-y-4">
         <div className="flex items-center justify-between rounded-lg border p-3">
-            <div className="flex items-center gap-2">
-                <div className={cn("h-3 w-3 rounded-full", color)} />
-                <span className="text-sm font-medium">{text}</span>
-            </div>
-            {user.wahaPhoneNumber && status === 'connected' && (
-                <Badge variant="secondary">{user.wahaPhoneNumber}</Badge>
-            )}
+          <div className="flex items-center gap-2">
+            <div className={cn("h-3 w-3 rounded-full", color)} />
+            <span className="text-sm font-medium">{text}</span>
+          </div>
+          {user.liveWahaPhoneNumber && status === 'connected' && (
+            <Badge variant="secondary">{user.liveWahaPhoneNumber}</Badge>
+          )}
         </div>
         
         {status === 'qrcode' && user.wahaQrCode ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border bg-muted p-4">
-                <p className="mb-2 text-center text-sm text-muted-foreground">Scan with WhatsApp on your phone</p>
-                <Image src={user.wahaQrCode} alt="WhatsApp QR Code" width={256} height={256} className="rounded-md" />
-            </div>
+          <div className="flex flex-col items-center justify-center rounded-lg border bg-muted p-4">
+            <p className="mb-2 text-center text-sm text-muted-foreground">Scan with WhatsApp on your phone</p>
+            <Image src={user.wahaQrCode} alt="WhatsApp QR Code" width={256} height={256} className="rounded-md" />
+          </div>
         ) : null}
 
-        {error && (
-            <Alert variant="destructive">
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-            </Alert>
-        )}
       </CardContent>
       <CardFooter className="flex gap-2">
         {status === 'disconnected' ? (
-          <Button onClick={() => handleAction('start')} disabled={isLoading} className="w-full">
-            {isLoading ? <Loader2 className="animate-spin" /> : <Power />} Start Session
+          <Button onClick={() => onAction(user.uid, user.wahaSessionName, 'start')} disabled={isActionLoading} className="w-full">
+            {isActionLoading ? <Loader2 className="animate-spin" /> : <Power />} Start Session
           </Button>
         ) : (
-            <>
-                <Button onClick={() => handleAction('stop')} disabled={isLoading} variant="outline" className="w-full">
-                    {isLoading ? <Loader2 className="animate-spin" /> : <PowerOff />} Stop
-                </Button>
-                 <Button onClick={() => handleAction('logout')} disabled={isLoading} variant="destructive" className="w-full">
-                    {isLoading ? <Loader2 className="animate-spin" /> : <LogOut />} Logout
-                </Button>
-            </>
+          <>
+            <Button onClick={() => onAction(user.uid, user.wahaSessionName, 'stop')} disabled={isActionLoading} variant="outline" className="w-full">
+              {isActionLoading ? <Loader2 className="animate-spin" /> : <PowerOff />} Stop
+            </Button>
+             <Button onClick={() => onAction(user.uid, user.wahaSessionName, 'logout')} disabled={isActionLoading} variant="destructive" className="w-full">
+              {isActionLoading ? <Loader2 className="animate-spin" /> : <LogOut />} Logout
+            </Button>
+          </>
         )}
       </CardFooter>
     </Card>
   );
 }
 
+// --- Main Page Component: WahaSessionsPage ---
 
 export default function WahaSessionsPage() {
-  const [users, setUsers] = React.useState<User[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [salesUsers, setSalesUsers] = React.useState<User[]>([]);
+  const [liveSessions, setLiveSessions] = React.useState<WahaSession[]>([]);
+  const [isUsersLoading, setIsUsersLoading] = React.useState(true);
+  const [isActionLoading, setIsActionLoading] = React.useState(false);
+  const [apiError, setApiError] = React.useState<string | null>(null);
   const { toast } = useToast();
 
+  // Effect 1: Fetch SALES users from Firestore
   React.useEffect(() => {
     const q = query(collection(db, 'users'), where('role', '==', 'SALES'));
     const unsubscribe = onSnapshot(q, 
@@ -181,8 +124,8 @@ export default function WahaSessionsPage() {
           uid: doc.id,
           ...doc.data(),
         } as User));
-        setUsers(usersData);
-        setIsLoading(false);
+        setSalesUsers(usersData);
+        setIsUsersLoading(false);
       },
       (error) => {
         console.error("Error fetching users:", error);
@@ -191,12 +134,107 @@ export default function WahaSessionsPage() {
             title: 'Failed to load users',
             description: error.message
         });
-        setIsLoading(false);
+        setIsUsersLoading(false);
       }
     );
     return () => unsubscribe();
   }, [toast]);
 
+  // Effect 2: Poll WAHA for live session statuses
+  React.useEffect(() => {
+    const fetchLiveSessions = async () => {
+      try {
+        const response = await fetch('/api/integrations/waha/sessions');
+        const result: WahaApiResponse = await response.json();
+        
+        if (result.ok && Array.isArray(result.data)) {
+          setLiveSessions(result.data);
+          setApiError(null);
+        } else {
+          setApiError(result.hint || 'Failed to fetch session data from WAHA.');
+        }
+      } catch (err) {
+        setApiError('Could not connect to the application server to get WAHA status.');
+      }
+    };
+
+    fetchLiveSessions(); // Initial fetch
+    const intervalId = setInterval(fetchLiveSessions, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Action Handler
+  const handleAction = async (userId: string, sessionName: string | undefined, action: 'start' | 'stop' | 'logout') => {
+    setIsActionLoading(true);
+
+    try {
+      const res = await fetch('/api/integrations/waha/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action,
+          userId,
+          sessionName: sessionName || `session-${userId}`,
+        }),
+      });
+
+      const result: WahaApiResponse = await res.json();
+      
+      if (!result.ok) {
+        throw new Error(result.hint || 'Failed to perform WAHA action.');
+      }
+      
+      const userRef = doc(db, 'users', userId);
+
+      if (action === 'start') {
+        const wahaData = result.data;
+        const newSessionName = wahaData.name;
+
+        // Update Firestore with session name and QR code if available
+        await setDoc(userRef, {
+            wahaSessionName: newSessionName,
+            wahaStatus: 'qrcode', // Optimistically set to qrcode
+            wahaQrCode: wahaData.qrcode?.qr,
+          }, { merge: true });
+        
+        toast({ title: 'Session Starting', description: 'Please scan the QR code with WhatsApp.' });
+      } else {
+        // For stop/logout, we can clear the QR code. The live status will update via polling.
+        await updateDoc(userRef, { wahaQrCode: null });
+        toast({ title: `Session ${action === 'stop' ? 'Stopped' : 'Logged Out'}` });
+      }
+
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Action Failed', description: err.message });
+    } finally {
+      setIsActionLoading(false);
+    }
+  };
+
+  // Memoized derived state: merge Firestore users with live WAHA sessions
+  const displayUsers = React.useMemo((): MergedUser[] => {
+    return salesUsers.map(user => {
+      const sessionName = user.wahaSessionName || `session-${user.uid}`;
+      const liveSession = liveSessions.find(s => s.name === sessionName);
+      
+      let liveWahaStatus: WahaSessionStatus = 'disconnected';
+      if (liveSession) {
+        liveWahaStatus = liveSession.status;
+      } else if (user.wahaStatus === 'qrcode') {
+        // If we have a QR code in Firestore but no live session yet, keep showing QR
+        liveWahaStatus = 'qrcode';
+      }
+
+      return {
+        ...user,
+        liveWahaStatus,
+        liveWahaPhoneNumber: liveSession?.status === 'connected' ? (liveSession.pushName || liveSession.me?.user) : null,
+      };
+    });
+  }, [salesUsers, liveSessions]);
+
+  const isLoading = isUsersLoading;
 
   return (
     <div className="space-y-6">
@@ -205,32 +243,40 @@ export default function WahaSessionsPage() {
           WAHA Session Management
         </h1>
         <p className="text-muted-foreground">
-          Monitor and manage WhatsApp sessions for all SALES users.
+          Monitor and manage WhatsApp sessions for all SALES users in real-time.
         </p>
       </div>
+      
+      {apiError && (
+          <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>WAHA Connection Error</AlertTitle>
+            <AlertDescription>{apiError}</AlertDescription>
+          </Alert>
+      )}
 
       {isLoading ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (
             <Card key={i}>
-                <CardHeader><Skeleton className="h-8 w-3/4" /></CardHeader>
-                <CardContent><Skeleton className="h-10 w-full" /></CardContent>
-                <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
+              <CardHeader><Skeleton className="h-8 w-3/4" /></CardHeader>
+              <CardContent><Skeleton className="h-10 w-full" /></CardContent>
+              <CardFooter><Skeleton className="h-10 w-full" /></CardFooter>
             </Card>
           ))}
         </div>
-      ) : users.length === 0 ? (
+      ) : displayUsers.length === 0 ? (
         <Alert>
-            <Smartphone className="h-4 w-4" />
-            <AlertTitle>No SALES Users Found</AlertTitle>
-            <AlertDescription>
-                There are no users with the 'SALES' role to manage. You can add them in the User Management page.
-            </AlertDescription>
+          <Smartphone className="h-4 w-4" />
+          <AlertTitle>No SALES Users Found</AlertTitle>
+          <AlertDescription>
+            There are no users with the 'SALES' role to manage. You can add them in the User Management page.
+          </AlertDescription>
         </Alert>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {users.map((user) => (
-            <UserWahaSessionCard key={user.uid} user={user} />
+          {displayUsers.map((user) => (
+            <UserWahaSessionCard key={user.uid} user={user} onAction={handleAction} isActionLoading={isActionLoading} />
           ))}
         </div>
       )}
