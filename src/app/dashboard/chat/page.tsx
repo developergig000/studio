@@ -9,12 +9,13 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { format, formatDistanceToNow } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format } from 'date-fns';
 import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones, Search } from 'lucide-react';
 import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '@/components/ui/button';
 
 // Helper function to get user initials
 function getInitials(name?: string | null) {
@@ -50,26 +51,55 @@ function ChatList({
   searchTerm: string;
   onSearchChange: (value: string) => void;
 }) {
+  const groupedUsers = React.useMemo(() => {
+    if (!salesUsers) return {};
+    return salesUsers.reduce((acc, user) => {
+      const group = user.group || 'Lainnya'; // Fallback group
+      if (!acc[group]) {
+        acc[group] = [];
+      }
+      acc[group].push(user);
+      return acc;
+    }, {} as Record<string, User[]>);
+  }, [salesUsers]);
+
+  const defaultAccordionValues = Object.keys(groupedUsers);
+
   return (
     <ScrollArea className="h-full">
-      <div className="flex flex-col gap-y-1">
-        <div className="p-2 border-b">
+      <div className="flex flex-col">
+        <div className="p-2">
           <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Pantau Pengguna Sales</h3>
-          <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid || ''}>
-            <SelectTrigger>
-              <SelectValue placeholder="Pilih anggota Sales" />
-            </SelectTrigger>
-            <SelectContent>
-              {salesUsers.map(user => (
-                <SelectItem key={user.uid} value={user.uid}>
-                  {user.name}
-                </SelectItem>
+          {salesUsers.length > 0 ? (
+            <Accordion type="multiple" defaultValue={defaultAccordionValues} className="w-full px-2">
+              {Object.entries(groupedUsers).map(([group, usersInGroup]) => (
+                <AccordionItem value={group} key={group} className="border-b-0">
+                  <AccordionTrigger className="py-2 hover:no-underline">
+                    <span className="font-medium text-sm">{group}</span>
+                  </AccordionTrigger>
+                  <AccordionContent className="pb-1">
+                    <div className="flex flex-col gap-1 mt-1">
+                      {usersInGroup.map(user => (
+                        <Button
+                          key={user.uid}
+                          variant={selectedSalesUser?.uid === user.uid ? 'secondary' : 'ghost'}
+                          className="h-auto w-full justify-start p-2 text-left"
+                          onClick={() => onSelectSalesUser(user.uid)}
+                        >
+                          {user.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </SelectContent>
-          </Select>
+            </Accordion>
+          ) : (
+             <p className="px-2 text-sm text-muted-foreground">Tidak ada pengguna sales.</p>
+          )}
         </div>
 
-        <div className="p-2">
+        <div className="p-2 border-t">
           <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Obrolan WhatsApp</h3>
           
           <div className="relative mb-2 px-2">
@@ -90,11 +120,19 @@ function ChatList({
             </div>
           )}
           {error && <Alert variant="destructive" className="m-2"><AlertTriangle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
+          
+          {!isLoading && !error && !selectedSalesUser && (
+             <p className="p-4 text-sm text-center text-muted-foreground">
+              Pilih pengguna sales untuk melihat obrolan.
+            </p>
+          )}
+
           {!isLoading && !error && chats.length === 0 && selectedSalesUser && (
              <p className="p-4 text-sm text-center text-muted-foreground">
               {searchTerm ? 'Tidak ada kontak yang cocok.' : 'Tidak ada obrolan WhatsApp yang ditemukan untuk pengguna ini.'}
             </p>
           )}
+          
           {chats.map(chat => (
             <button
               key={chat.id}
