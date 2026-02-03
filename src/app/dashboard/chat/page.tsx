@@ -15,7 +15,7 @@ import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 // Helper function to get user initials
@@ -35,9 +35,12 @@ function getInitials(name?: string | null) {
 
 // ChatList component (Left Panel)
 function ChatList({
-  salesUsers,
-  onSelectSalesUser,
+  groups,
+  selectedGroup,
+  onGroupChange,
+  usersInGroup,
   selectedSalesUser,
+  onSelectSalesUser,
   chats,
   onSelectChat,
   isLoading,
@@ -48,9 +51,12 @@ function ChatList({
   selectedChatId,
   isHeadSales,
 }: {
-  salesUsers: User[];
-  onSelectSalesUser: (userId: string) => void;
+  groups: string[];
+  selectedGroup: string | null;
+  onGroupChange: (group: string) => void;
+  usersInGroup: User[];
   selectedSalesUser: User | null;
+  onSelectSalesUser: (userId: string) => void;
   chats: WahaChat[];
   onSelectChat: (chatId: string) => void;
   isLoading: boolean;
@@ -61,47 +67,42 @@ function ChatList({
   selectedChatId: string | null;
   isHeadSales: boolean;
 }) {
-  const groupedUsers = React.useMemo(() => {
-    if (!salesUsers) return {};
-    return salesUsers.reduce((acc, user) => {
-      const group = user.group || 'Lainnya'; // Fallback group
-      if (!acc[group]) {
-        acc[group] = [];
-      }
-      acc[group].push(user);
-      return acc;
-    }, {} as Record<string, User[]>);
-  }, [salesUsers]);
-
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col">
         {isHeadSales && (
             <div className="p-2">
             <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Pantau Pengguna Sales</h3>
-            {salesUsers.length > 0 ? (
-                <div className="px-2">
-                <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid}>
-                    <SelectTrigger>
-                    <SelectValue placeholder="Pilih pengguna sales..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                    {Object.entries(groupedUsers).map(([group, usersInGroup]) => (
-                        <SelectGroup key={group}>
-                        <SelectLabel>{group}</SelectLabel>
-                        {usersInGroup.map(user => (
-                            <SelectItem key={user.uid} value={user.uid}>
-                            {user.name}
-                            </SelectItem>
-                        ))}
-                        </SelectGroup>
+            <div className="px-2 space-y-2">
+                <Select onValueChange={onGroupChange} value={selectedGroup || ''}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih Grup..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groups.map(group => (
+                      <SelectItem key={group} value={group}>
+                        {group}
+                      </SelectItem>
                     ))}
-                    </SelectContent>
+                  </SelectContent>
                 </Select>
-                </div>
-            ) : (
-                <p className="px-2 text-sm text-muted-foreground">Tidak ada pengguna sales.</p>
-            )}
+                <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid || ''} disabled={!selectedGroup}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pilih Pengguna..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {usersInGroup.length > 0 ? (
+                      usersInGroup.map(user => (
+                        <SelectItem key={user.uid} value={user.uid}>
+                          {user.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <div className="p-2 text-sm text-center text-muted-foreground">Pilih grup terlebih dahulu</div>
+                    )}
+                  </SelectContent>
+                </Select>
+            </div>
             </div>
         )}
 
@@ -131,7 +132,7 @@ function ChatList({
           
           {!isLoading && !error && !selectedSalesUser && isHeadSales && (
              <p className="p-4 text-sm text-center text-muted-foreground">
-              Pilih pengguna sales untuk melihat obrolan.
+              Pilih grup dan pengguna sales untuk melihat obrolan.
             </p>
           )}
 
@@ -378,6 +379,8 @@ export default function ChatPage() {
   const { toast } = useToast();
   
   const [salesUsers, setSalesUsers] = React.useState<User[]>([]);
+  const [groups, setGroups] = React.useState<string[]>([]);
+  const [selectedGroup, setSelectedGroup] = React.useState<string | null>(null);
   const [selectedSalesUser, setSelectedSalesUser] = React.useState<User | null>(null);
   
   const [wahaChats, setWahaChats] = React.useState<WahaChat[]>([]);
@@ -407,6 +410,9 @@ export default function ChatPage() {
       const usersSnapshot = await getDocs(usersQuery);
       const fetchedUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
       setSalesUsers(fetchedUsers);
+
+      const uniqueGroups = [...new Set(fetchedUsers.map(u => u.group).filter(Boolean))] as string[];
+      setGroups(uniqueGroups.sort());
     }
     
     if (isHeadSales) {
@@ -543,6 +549,11 @@ export default function ChatPage() {
     fetchWahaMessages();
   }, [selectedChat, selectedSalesUser]);
 
+  const usersInSelectedGroup = React.useMemo(() => {
+    if (!selectedGroup) return [];
+    return salesUsers.filter(u => u.group === selectedGroup);
+  }, [salesUsers, selectedGroup]);
+
   // Derived state: chats with aliases applied (for HEAD_SALES)
   const mergedWahaChats = React.useMemo(() => {
     if (!isHeadSales) return wahaChats;
@@ -571,6 +582,11 @@ export default function ChatPage() {
       message.body?.toLowerCase().includes(lowercasedQuery)
     );
   }, [messageSearchTerm, wahaMessages]);
+
+  const handleGroupChange = (group: string) => {
+    setSelectedGroup(group);
+    setSelectedSalesUser(null);
+  };
 
   const handleSelectSalesUser = (userId: string) => {
     const user = salesUsers.find(u => u.uid === userId) || null;
@@ -617,9 +633,12 @@ export default function ChatPage() {
         <div className="grid h-full grid-cols-1 md:grid-cols-[320px_1fr]">
           <div className="border-r h-full overflow-hidden">
             <ChatList
-              salesUsers={salesUsers}
-              onSelectSalesUser={handleSelectSalesUser}
+              groups={groups}
+              selectedGroup={selectedGroup}
+              onGroupChange={handleGroupChange}
+              usersInGroup={usersInSelectedGroup}
               selectedSalesUser={selectedSalesUser}
+              onSelectSalesUser={handleSelectSalesUser}
               chats={filteredChats}
               onSelectChat={handleSelectChat}
               isLoading={chatsLoading}
