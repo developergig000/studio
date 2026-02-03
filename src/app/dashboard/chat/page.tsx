@@ -15,6 +15,7 @@ import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 // Helper function to get user initials
 function getInitials(name?: string | null) {
@@ -68,24 +69,24 @@ function ChatList({
         <div className="p-2">
           <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Pantau Pengguna Sales</h3>
           {salesUsers.length > 0 ? (
-            <div className="w-full space-y-4 px-2">
-              {Object.entries(groupedUsers).map(([group, usersInGroup]) => (
-                <div key={group}>
-                  <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{group}</h4>
-                  <div className="flex flex-col gap-1">
-                    {usersInGroup.map(user => (
-                      <Button
-                        key={user.uid}
-                        variant={selectedSalesUser?.uid === user.uid ? 'secondary' : 'ghost'}
-                        className="h-auto w-full justify-start p-2 text-left"
-                        onClick={() => onSelectSalesUser(user.uid)}
-                      >
-                        {user.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="px-2">
+              <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih pengguna sales..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(groupedUsers).map(([group, usersInGroup]) => (
+                    <SelectGroup key={group}>
+                      <SelectLabel>{group}</SelectLabel>
+                      {usersInGroup.map(user => (
+                        <SelectItem key={user.uid} value={user.uid}>
+                          {user.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ) : (
              <p className="px-2 text-sm text-muted-foreground">Tidak ada pengguna sales.</p>
