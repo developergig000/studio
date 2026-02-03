@@ -51,7 +51,7 @@ function UserWahaSessionCard({ user, onAction, isActionLoading }: { user: Merged
   };
 
   const status = user.liveWahaStatus;
-  const { Icon, color, text } = statusConfig[status];
+  const { Icon, color, text } = statusConfig[status as keyof typeof statusConfig] || statusConfig.disconnected;
 
   return (
     <Card className="flex flex-col">
