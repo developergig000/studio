@@ -46,6 +46,7 @@ function ChatList({
   searchTerm,
   onSearchChange,
   selectedChatId,
+  isHeadSales,
 }: {
   salesUsers: User[];
   onSelectSalesUser: (userId: string) => void;
@@ -58,6 +59,7 @@ function ChatList({
   searchTerm: string;
   onSearchChange: (value: string) => void;
   selectedChatId: string | null;
+  isHeadSales: boolean;
 }) {
   const groupedUsers = React.useMemo(() => {
     if (!salesUsers) return {};
@@ -74,35 +76,39 @@ function ChatList({
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col">
-        <div className="p-2">
-          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Pantau Pengguna Sales</h3>
-          {salesUsers.length > 0 ? (
-            <div className="px-2">
-              <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih pengguna sales..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(groupedUsers).map(([group, usersInGroup]) => (
-                    <SelectGroup key={group}>
-                      <SelectLabel>{group}</SelectLabel>
-                      {usersInGroup.map(user => (
-                        <SelectItem key={user.uid} value={user.uid}>
-                          {user.name}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  ))}
-                </SelectContent>
-              </Select>
+        {isHeadSales && (
+            <div className="p-2">
+            <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Pantau Pengguna Sales</h3>
+            {salesUsers.length > 0 ? (
+                <div className="px-2">
+                <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid}>
+                    <SelectTrigger>
+                    <SelectValue placeholder="Pilih pengguna sales..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                    {Object.entries(groupedUsers).map(([group, usersInGroup]) => (
+                        <SelectGroup key={group}>
+                        <SelectLabel>{group}</SelectLabel>
+                        {usersInGroup.map(user => (
+                            <SelectItem key={user.uid} value={user.uid}>
+                            {user.name}
+                            </SelectItem>
+                        ))}
+                        </SelectGroup>
+                    ))}
+                    </SelectContent>
+                </Select>
+                </div>
+            ) : (
+                <p className="px-2 text-sm text-muted-foreground">Tidak ada pengguna sales.</p>
+            )}
             </div>
-          ) : (
-             <p className="px-2 text-sm text-muted-foreground">Tidak ada pengguna sales.</p>
-          )}
-        </div>
+        )}
 
-        <div className="p-2 border-t">
-          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Obrolan WhatsApp</h3>
+        <div className={cn("p-2", isHeadSales && "border-t")}>
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">
+            {isHeadSales ? "Obrolan WhatsApp" : "Obrolan WhatsApp Saya"}
+          </h3>
           
           <div className="relative mb-2 px-2">
             <Search className="absolute left-5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -123,7 +129,7 @@ function ChatList({
           )}
           {error && <Alert variant="destructive" className="m-2"><AlertTriangle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>}
           
-          {!isLoading && !error && !selectedSalesUser && (
+          {!isLoading && !error && !selectedSalesUser && isHeadSales && (
              <p className="p-4 text-sm text-center text-muted-foreground">
               Pilih pengguna sales untuk melihat obrolan.
             </p>
@@ -237,6 +243,7 @@ function ChatWindow({
   searchTerm,
   onSearchChange,
   onSaveName,
+  isHeadSales,
 }: {
   chat: WahaChat | null;
   messages: WahaMessage[];
@@ -245,6 +252,7 @@ function ChatWindow({
   searchTerm: string;
   onSearchChange: (value: string) => void;
   onSaveName: (chatId: string, newName: string) => Promise<void>;
+  isHeadSales: boolean;
 }) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const [isEditingName, setIsEditingName] = React.useState(false);
@@ -267,8 +275,16 @@ function ChatWindow({
       <div className="flex h-full items-center justify-center bg-muted/50">
         <div className="text-center text-muted-foreground">
           <MessageCircle className="mx-auto h-12 w-12" />
-          <p className="mt-4 text-lg font-medium">Pilih pengguna dan obrolan untuk melihat pesan</p>
-          <p>Ini adalah tampilan baca-saja untuk tujuan pemantauan.</p>
+          <p className="mt-4 text-lg font-medium">
+            {isHeadSales 
+                ? "Pilih pengguna dan obrolan untuk melihat pesan" 
+                : "Pilih obrolan untuk melihat pesan"}
+          </p>
+          <p className="text-sm">
+            {isHeadSales 
+                ? "Ini adalah tampilan baca-saja untuk tujuan pemantauan."
+                : "Ini adalah tampilan baca-saja dari obrolan Anda."}
+          </p>
         </div>
       </div>
     );
@@ -315,9 +331,11 @@ function ChatWindow({
           ) : (
             <div className="flex items-center gap-1">
               <p className="font-semibold">{chat.name}</p>
-              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleEditClick}>
-                <Pencil className="h-3 w-3" />
-              </Button>
+              {isHeadSales && (
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleEditClick}>
+                    <Pencil className="h-3 w-3" />
+                </Button>
+              )}
             </div>
           )}
           <p className="text-sm text-muted-foreground">{chat.isGroup ? 'Group Chat' : 'Direct Message'}</p>
@@ -377,21 +395,33 @@ export default function ChatPage() {
   const [messageSearchTerm, setMessageSearchTerm] = React.useState('');
   const [chatSearchTerm, setChatSearchTerm] = React.useState('');
 
+  const isHeadSales = user?.role === 'HEAD_SALES';
+
+  // Effect 1: Determine which user to show chats for.
+  // - HEAD_SALES: Fetch all sales users for selection.
+  // - SALES: Automatically select the logged-in user.
   React.useEffect(() => {
     async function fetchSalesUsers() {
-      if (user?.role !== 'HEAD_SALES') return;
+      if (!isHeadSales) return;
       const usersQuery = query(collection(db, 'users'), where('role', '==', 'SALES'));
       const usersSnapshot = await getDocs(usersQuery);
       const fetchedUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
       setSalesUsers(fetchedUsers);
     }
-    fetchSalesUsers();
-  }, [user]);
+    
+    if (isHeadSales) {
+        fetchSalesUsers();
+    } else if (user) {
+        // For SALES role, automatically select themselves
+        setSelectedSalesUser(user);
+        setSalesUsers([]);
+    }
+  }, [user, isHeadSales]);
 
-  // Fetch contact aliases when a sales user is selected
+  // Effect 2: Fetch contact aliases (only for HEAD_SALES)
   React.useEffect(() => {
     async function fetchAliases() {
-      if (!selectedSalesUser) {
+      if (!selectedSalesUser || !isHeadSales) {
         setContactAliases({});
         return;
       }
@@ -405,13 +435,13 @@ export default function ChatPage() {
         setContactAliases(aliases);
       } catch (error) {
         console.error("Failed to fetch contact aliases:", error);
-        // Do not show a toast for this, as it's a background operation
       }
     }
     fetchAliases();
-  }, [selectedSalesUser]);
+  }, [selectedSalesUser, isHeadSales]);
 
 
+  // Effect 3: Fetch WAHA chats for the selected user
   React.useEffect(() => {
     const abortController = new AbortController();
 
@@ -425,14 +455,14 @@ export default function ChatPage() {
       if (!selectedSalesUser) return;
       
       if (!selectedSalesUser.wahaSessionName || selectedSalesUser.wahaSessionName.trim() === '') {
-        setChatsError(`Session WAHA belum dikaitkan ke user ini: ${selectedSalesUser.name}`);
+        setChatsError(`Pengguna ${selectedSalesUser.name} belum memiliki sesi WAHA yang terhubung.`);
         return;
       }
       
       const sessionName = selectedSalesUser.wahaSessionName;
 
       setChatsLoading(true);
-      setLoadingMessage(`Mencoba terhubung ke sesi '${sessionName}'...`);
+      setLoadingMessage(`Menghubungkan ke sesi '${sessionName}'...`);
 
       const MAX_RETRIES = 5;
       const RETRY_DELAY = 4000;
@@ -442,7 +472,6 @@ export default function ChatPage() {
 
         try {
           const response = await fetch(`/api/integrations/waha/chats?sessionName=${sessionName}`, { signal: abortController.signal });
-          
           const result: WahaApiResponse = await response.json();
 
           if (result.ok) {
@@ -460,24 +489,17 @@ export default function ChatPage() {
 
           if (!result.ok && result.status === 404) {
              if (attempt === MAX_RETRIES) {
-              throw new Error(`Sesi '${sessionName}' tidak merespon setelah beberapa kali percobaan. Pastikan sesi berjalan dengan benar di layanan WAHA.`);
+              throw new Error(`Sesi '${sessionName}' tidak merespon. Pastikan sesi berjalan di layanan WAHA.`);
             }
-            setLoadingMessage(`Sesi ditemukan, menunggu sinkronisasi obrolan... (Percobaan ${attempt}/${MAX_RETRIES})`);
+            setLoadingMessage(`Menunggu sinkronisasi obrolan... (Percobaan ${attempt}/${MAX_RETRIES})`);
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           } else {
-            const errorMessage = result.hint || `Gagal mengambil obrolan untuk sesi '${sessionName}'. Pastikan nama sesi sudah benar di Manajemen Pengguna dan sesi tersebut telah sepenuhnya terhubung dan siap di WAHA.`;
+            const errorMessage = result.hint || `Gagal mengambil obrolan untuk sesi '${sessionName}'.`;
             throw new Error(errorMessage);
           }
         } catch (err: any) {
-           if (err.name === 'AbortError') {
-             console.log('Fetch for chats aborted.');
-             return;
-           }
-           if (err instanceof SyntaxError) {
-            setChatsError("Gagal mem-parsing respons dari WAHA. Layanan mungkin sedang tidak aktif atau mengembalikan format yang tidak valid.");
-           } else {
-            setChatsError(err.message);
-           }
+           if (err.name === 'AbortError') { return; }
+           setChatsError(err.message);
            setChatsLoading(false);
            setLoadingMessage(null);
            return;
@@ -492,6 +514,7 @@ export default function ChatPage() {
     };
   }, [selectedSalesUser]);
 
+  // Effect 4: Fetch messages for the selected chat
   React.useEffect(() => {
     async function fetchWahaMessages() {
         setWahaMessages([]);
@@ -508,10 +531,7 @@ export default function ChatPage() {
         if (result.ok && Array.isArray(result.data)) {
            setWahaMessages(result.data.reverse());
         } else {
-          let errorMessage = result.hint || 'Terjadi kesalahan tidak dikenal saat mengambil pesan.';
-          if (result.data && (result.data.message || result.data.error)) {
-             errorMessage = `WAHA Error: ${result.data.message || result.data.error}`;
-          }
+          let errorMessage = result.hint || 'Terjadi kesalahan saat mengambil pesan.';
           throw new Error(errorMessage);
         }
       } catch (err: any) {
@@ -523,13 +543,14 @@ export default function ChatPage() {
     fetchWahaMessages();
   }, [selectedChat, selectedSalesUser]);
 
-  // Derived state for chats with aliases and filtering
+  // Derived state: chats with aliases applied (for HEAD_SALES)
   const mergedWahaChats = React.useMemo(() => {
+    if (!isHeadSales) return wahaChats;
     return wahaChats.map(chat => ({
         ...chat,
         name: contactAliases[chat.id] || chat.name,
     }));
-  }, [wahaChats, contactAliases]);
+  }, [wahaChats, contactAliases, isHeadSales]);
 
   const filteredChats = React.useMemo(() => {
     if (!chatSearchTerm) {
@@ -563,16 +584,14 @@ export default function ChatPage() {
   };
   
   const handleSaveName = async (chatId: string, newName: string) => {
-    if (!selectedSalesUser || !newName.trim()) return;
+    if (!selectedSalesUser || !newName.trim() || !isHeadSales) return;
     try {
         const aliasRef = doc(db, 'users', selectedSalesUser.uid, 'waha_contacts', chatId);
         await setDoc(aliasRef, { customName: newName.trim() });
 
-        // Optimistic update
         const newAliases = { ...contactAliases, [chatId]: newName.trim() };
         setContactAliases(newAliases);
         
-        // Update selected chat if it's the one being edited
         if (selectedChat?.id === chatId) {
             setSelectedChat(prev => prev ? { ...prev, name: newName.trim() } : null);
         }
@@ -609,6 +628,7 @@ export default function ChatPage() {
               searchTerm={chatSearchTerm}
               onSearchChange={setChatSearchTerm}
               selectedChatId={selectedChat?.id || null}
+              isHeadSales={isHeadSales}
             />
           </div>
           <div className="h-full overflow-hidden">
@@ -620,6 +640,7 @@ export default function ChatPage() {
               searchTerm={messageSearchTerm}
               onSearchChange={setMessageSearchTerm}
               onSaveName={handleSaveName}
+              isHeadSales={isHeadSales}
             />
           </div>
         </div>

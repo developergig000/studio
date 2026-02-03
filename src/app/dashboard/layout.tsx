@@ -127,6 +127,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <Link href="/dashboard/sales"><User />My Profile</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/chat')}>
+                                <Link href="/dashboard/chat"><MessageSquare />Obrolan</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
                          <SidebarMenuItem>
                             <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/integrations')}>
                                 <Link href="/dashboard/integrations"><Plug />Integrasi</Link>
