@@ -26,7 +26,7 @@ function getInitials(name?: string | null) {
 
 type WahaSession = {
   name: string;
-  status: WahaSessionStatus;
+  status: WahaSessionStatus | string; // Allow for unexpected string statuses
   pushName?: string;
   me?: {
     user: string;
@@ -37,6 +37,18 @@ type MergedUser = User & {
   liveWahaStatus: WahaSessionStatus;
   liveWahaPhoneNumber?: string | null;
 };
+
+// Normalize WAHA status to a known set of values
+function normalizeWahaStatus(status: string | undefined): WahaSessionStatus {
+    if (!status) return 'disconnected';
+    const lowerCaseStatus = status.toLowerCase();
+    
+    if (lowerCaseStatus.includes('connected')) return 'connected';
+    if (lowerCaseStatus.includes('qrcode')) return 'qrcode';
+    if (lowerCaseStatus.includes('loading') || lowerCaseStatus.includes('starting')) return 'loading';
+    
+    return 'disconnected';
+}
 
 
 // --- Child Component: UserWahaSessionCard ---
@@ -51,6 +63,7 @@ function UserWahaSessionCard({ user, onAction, isActionLoading }: { user: Merged
   };
 
   const status = user.liveWahaStatus;
+  // Fallback to disconnected if status is not in config
   const { Icon, color, text } = statusConfig[status as keyof typeof statusConfig] || statusConfig.disconnected;
 
   return (
@@ -72,8 +85,9 @@ function UserWahaSessionCard({ user, onAction, isActionLoading }: { user: Merged
             <div className={cn("h-3 w-3 rounded-full", color)} />
             <span className="text-sm font-medium">{text}</span>
           </div>
-          {user.liveWahaPhoneNumber && status === 'connected' && (
-            <Badge variant="secondary">{user.liveWahaPhoneNumber}</Badge>
+          {/* Display phone number from Firestore user data, which can be manually set or synced */}
+          {user.wahaPhoneNumber && (
+            <Badge variant="secondary">{user.wahaPhoneNumber}</Badge>
           )}
         </div>
         
@@ -200,7 +214,7 @@ export default function WahaSessionsPage() {
         
         toast({ title: 'Session Starting', description: 'Please scan the QR code with WhatsApp.' });
       } else {
-        // For stop/logout, clear the QR code and reset the status to disconnected.
+        // For stop/logout, only clear the QR code and reset status. Do NOT clear phone number.
         await updateDoc(userRef, { wahaQrCode: null, wahaStatus: 'disconnected' });
         toast({ title: `Session ${action === 'stop' ? 'Stopped' : 'Logged Out'}` });
       }
@@ -218,18 +232,22 @@ export default function WahaSessionsPage() {
       const sessionName = user.wahaSessionName || `session-${user.uid}`;
       const liveSession = liveSessions.find(s => s.name === sessionName);
       
-      let liveWahaStatus: WahaSessionStatus = 'disconnected';
-      if (liveSession) {
-        liveWahaStatus = liveSession.status;
-      } else if (user.wahaStatus === 'qrcode') {
-        // If we have a QR code in Firestore but no live session yet, keep showing QR
+      let liveWahaStatus = normalizeWahaStatus(liveSession?.status);
+
+      // This logic ensures that if we are waiting for a QR scan, we keep showing it
+      // even if the live session hasn't appeared yet.
+      if (liveWahaStatus === 'disconnected' && user.wahaStatus === 'qrcode') {
         liveWahaStatus = 'qrcode';
       }
+      
+      const livePhoneNumber = normalizeWahaStatus(liveSession?.status) === 'connected' 
+        ? (liveSession?.pushName || liveSession?.me?.user) 
+        : null;
 
       return {
         ...user,
         liveWahaStatus,
-        liveWahaPhoneNumber: liveSession?.status === 'connected' ? (liveSession.pushName || liveSession.me?.user) : null,
+        liveWahaPhoneNumber: livePhoneNumber,
       };
     });
   }, [salesUsers, liveSessions]);
@@ -238,17 +256,12 @@ export default function WahaSessionsPage() {
   React.useEffect(() => {
     displayUsers.forEach(user => {
       const hasLiveNumber = !!user.liveWahaPhoneNumber;
-      const hasStoredNumber = !!user.wahaPhoneNumber;
 
-      // If live number exists and is different from stored one, update it.
+      // Only sync from WAHA to Firestore if a session is truly connected and provides a number.
+      // This prevents overwriting manually entered data.
       if (hasLiveNumber && user.liveWahaPhoneNumber !== user.wahaPhoneNumber) {
         const userRef = doc(db, 'users', user.uid);
         updateDoc(userRef, { wahaPhoneNumber: user.liveWahaPhoneNumber });
-      }
-      // If there's no live number but we have one stored, clear it (session disconnected).
-      else if (!hasLiveNumber && hasStoredNumber) {
-        const userRef = doc(db, 'users', user.uid);
-        updateDoc(userRef, { wahaPhoneNumber: null });
       }
     });
   }, [displayUsers]);
