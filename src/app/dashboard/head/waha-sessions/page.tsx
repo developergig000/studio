@@ -233,6 +233,26 @@ export default function WahaSessionsPage() {
       };
     });
   }, [salesUsers, liveSessions]);
+  
+  // Effect 3: Sync live phone numbers back to Firestore
+  React.useEffect(() => {
+    displayUsers.forEach(user => {
+      const hasLiveNumber = !!user.liveWahaPhoneNumber;
+      const hasStoredNumber = !!user.wahaPhoneNumber;
+
+      // If live number exists and is different from stored one, update it.
+      if (hasLiveNumber && user.liveWahaPhoneNumber !== user.wahaPhoneNumber) {
+        const userRef = doc(db, 'users', user.uid);
+        updateDoc(userRef, { wahaPhoneNumber: user.liveWahaPhoneNumber });
+      }
+      // If there's no live number but we have one stored, clear it (session disconnected).
+      else if (!hasLiveNumber && hasStoredNumber) {
+        const userRef = doc(db, 'users', user.uid);
+        updateDoc(userRef, { wahaPhoneNumber: null });
+      }
+    });
+  }, [displayUsers]);
+
 
   const isLoading = isUsersLoading;
 

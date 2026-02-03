@@ -15,7 +15,7 @@ import type { User, UserGroup, UserRole } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -35,6 +35,7 @@ const editFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   role: z.enum(['SALES', 'HEAD_SALES']),
   group: z.enum(['Yogyakarta', 'Pekanbaru']),
+  wahaSessionName: z.string().optional(),
 });
 
 export default function UserManagementPage() {
@@ -77,6 +78,8 @@ export default function UserManagementPage() {
           role: data.role,
           group: data.group,
           createdAt: data.createdAt,
+          wahaSessionName: data.wahaSessionName,
+          wahaPhoneNumber: data.wahaPhoneNumber,
         };
       });
       setUsers(usersData);
@@ -136,7 +139,8 @@ export default function UserManagementPage() {
     editForm.reset({
       name: user.name || '',
       role: user.role || 'SALES',
-      group: user.group || 'Yogyakarta'
+      group: user.group || 'Yogyakarta',
+      wahaSessionName: user.wahaSessionName || ''
     });
     setIsEditDialogOpen(true);
   };
@@ -149,7 +153,8 @@ export default function UserManagementPage() {
         await updateDoc(userRef, {
             name: values.name,
             role: values.role,
-            group: values.group
+            group: values.group,
+            wahaSessionName: values.wahaSessionName || '',
         });
         toast({ title: 'User Updated Successfully' });
         setIsEditDialogOpen(false);
@@ -280,6 +285,8 @@ export default function UserManagementPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Group</TableHead>
+                    <TableHead>WAHA Session</TableHead>
+                    <TableHead>WAHA Phone</TableHead>
                     <TableHead>Joined</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
@@ -292,6 +299,8 @@ export default function UserManagementPage() {
                         <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-16" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-24" /></TableCell>
                         <TableCell><Skeleton className="h-4 w-20" /></TableCell>
                         <TableCell><Skeleton className="h-8 w-8" /></TableCell>
                       </TableRow>
@@ -309,6 +318,8 @@ export default function UserManagementPage() {
                         <TableCell>
                           {user.group ? <Badge variant="secondary">{user.group}</Badge> : 'N/A'}
                         </TableCell>
+                        <TableCell>{user.wahaSessionName || 'N/A'}</TableCell>
+                        <TableCell>{user.wahaPhoneNumber || 'N/A'}</TableCell>
                         <TableCell>
                           {user.createdAt ? format((user.createdAt as Timestamp).toDate(), 'PP') : 'N/A'}
                         </TableCell>
@@ -321,7 +332,7 @@ export default function UserManagementPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center">
+                      <TableCell colSpan={8} className="text-center">
                         No users found.
                       </TableCell>
                     </TableRow>
@@ -394,6 +405,22 @@ export default function UserManagementPage() {
                         <SelectItem value="Pekanbaru">Pekanbaru</SelectItem>
                       </SelectContent>
                     </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="wahaSessionName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>WAHA Session Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="session-name-from-waha" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormDescription>
+                      Link an existing WAHA session to avoid re-scanning QR.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
