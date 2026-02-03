@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -12,9 +11,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones } from 'lucide-react';
+import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones, Search } from 'lucide-react';
 import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
 
 // Helper function to get user initials
 function getInitials(name?: string | null) {
@@ -178,12 +178,16 @@ function ChatWindow({
   chat,
   messages,
   isLoading,
-  error
+  error,
+  searchTerm,
+  onSearchChange,
 }: {
   chat: WahaChat | null;
   messages: WahaMessage[];
   isLoading: boolean;
   error: string | null;
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
 }) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -208,27 +212,41 @@ function ChatWindow({
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-3 border-b p-3">
+      <header className="flex items-center gap-3 border-b p-3 pr-4">
         <Avatar className="h-10 w-10 border">
           <AvatarImage src={chat.profilePicUrl} />
           <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
         </Avatar>
-        <div>
+        <div className="flex-1">
           <p className="font-semibold">{chat.name}</p>
           <p className="text-sm text-muted-foreground">{chat.isGroup ? 'Group Chat' : 'Direct Message'}</p>
         </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Cari pesan..."
+            value={searchTerm}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="h-9 w-48 pl-10 md:w-64"
+          />
+        </div>
       </header>
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
+        <div className="space-y-4 p-4">
           {isLoading && <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>}
           {error && <Alert variant="destructive" className="m-4"><ServerCrash className="h-4 w-4" /><AlertTitle>Gagal memuat pesan</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+          {!isLoading && !error && messages.length === 0 && (
+             <p className="p-4 text-center text-sm text-muted-foreground">
+              {searchTerm ? 'Tidak ada pesan yang cocok dengan pencarian Anda.' : 'Tidak ada pesan di obrolan ini.'}
+            </p>
+          )}
           {!isLoading && !error && messages.map(msg => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-      <div className="border-t p-3 bg-muted/50 text-center">
+      <div className="border-t bg-muted/50 p-3 text-center">
         <p className="text-xs text-muted-foreground">Ini adalah tampilan baca-saja. Membalas tidak tersedia.</p>
       </div>
     </div>
@@ -250,6 +268,9 @@ export default function ChatPage() {
   const [wahaMessages, setWahaMessages] = React.useState<WahaMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = React.useState(false);
   const [messagesError, setMessagesError] = React.useState<string | null>(null);
+
+  const [messageSearchTerm, setMessageSearchTerm] = React.useState('');
+  const [filteredMessages, setFilteredMessages] = React.useState<WahaMessage[]>([]);
 
   React.useEffect(() => {
     async function fetchSalesUsers() {
@@ -375,6 +396,18 @@ export default function ChatPage() {
     fetchWahaMessages();
   }, [selectedChat, selectedSalesUser]);
 
+  React.useEffect(() => {
+    if (!messageSearchTerm) {
+      setFilteredMessages(wahaMessages);
+    } else {
+      const lowercasedQuery = messageSearchTerm.toLowerCase();
+      const filtered = wahaMessages.filter(message =>
+        message.body?.toLowerCase().includes(lowercasedQuery)
+      );
+      setFilteredMessages(filtered);
+    }
+  }, [messageSearchTerm, wahaMessages]);
+
 
   const handleSelectSalesUser = (userId: string) => {
     const user = salesUsers.find(u => u.uid === userId) || null;
@@ -384,6 +417,7 @@ export default function ChatPage() {
   const handleSelectChat = (chatId: string) => {
     const chat = wahaChats.find(c => c.id === chatId) || null;
     setSelectedChat(chat);
+    setMessageSearchTerm(''); // Reset search on new chat selection
   }
 
   if (authLoading) {
@@ -413,9 +447,11 @@ export default function ChatPage() {
           <div className="h-full overflow-hidden">
             <ChatWindow
               chat={selectedChat}
-              messages={wahaMessages}
+              messages={filteredMessages}
               isLoading={messagesLoading}
               error={messagesError}
+              searchTerm={messageSearchTerm}
+              onSearchChange={setMessageSearchTerm}
             />
           </div>
         </div>
