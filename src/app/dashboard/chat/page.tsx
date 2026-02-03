@@ -210,25 +210,39 @@ export default function ChatPage() {
   // Effect to fetch WAHA chats when a sales user is selected
   React.useEffect(() => {
     async function fetchWahaChats() {
-      if (!selectedSalesUser || !selectedSalesUser.wahaSessionName) {
-        setWahaChats([]);
-        return;
-      }
-      setChatsLoading(true);
-      setChatsError(null);
+      // Clear all dependent state when the selected user changes
       setWahaChats([]);
       setSelectedChat(null);
       setWahaMessages([]);
+      setChatsError(null);
 
+      if (!selectedSalesUser) {
+        return; // Nothing selected, do nothing.
+      }
+      
+      if (!selectedSalesUser.wahaSessionName) {
+        setChatsError(`User '${selectedSalesUser.name}' does not have a WAHA session name configured.`);
+        return; // No session name, show an error and stop.
+      }
+
+      setChatsLoading(true);
       try {
         const response = await fetch(`/api/integrations/waha/chats?sessionName=${selectedSalesUser.wahaSessionName}`);
         const result: WahaApiResponse = await response.json();
+
         if (result.ok && Array.isArray(result.data)) {
-          // Sort chats by last message timestamp
           const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
           setWahaChats(sortedChats);
         } else {
-          throw new Error(result.hint || 'Failed to fetch chats from WAHA.');
+          let errorMessage;
+          if (result.status === 404) {
+             errorMessage = `Session '${selectedSalesUser.wahaSessionName}' not found in WAHA. Please check the session name in User Management.`;
+          } else if (result.data && (result.data.message || result.data.error)) {
+             errorMessage = `WAHA Error: ${result.data.message || result.data.error}`;
+          } else {
+             errorMessage = result.hint || 'An unknown error occurred while fetching chats.';
+          }
+          throw new Error(errorMessage);
         }
       } catch (err: any) {
         setChatsError(err.message);
@@ -242,10 +256,10 @@ export default function ChatPage() {
   // Effect to fetch messages when a chat is selected
   React.useEffect(() => {
     async function fetchWahaMessages() {
-      if (!selectedChat || !selectedSalesUser?.wahaSessionName) {
-        setWahaMessages([]);
-        return;
-      };
+        setWahaMessages([]); // Clear previous messages
+        if (!selectedChat || !selectedSalesUser?.wahaSessionName) {
+            return;
+        };
 
       setMessagesLoading(true);
       setMessagesError(null);
@@ -255,7 +269,13 @@ export default function ChatPage() {
         if (result.ok && Array.isArray(result.data)) {
            setWahaMessages(result.data.reverse()); // WAHA usually returns newest first
         } else {
-          throw new Error(result.hint || 'Failed to fetch messages.');
+          let errorMessage;
+          if (result.data && (result.data.message || result.data.error)) {
+             errorMessage = `WAHA Error: ${result.data.message || result.data.error}`;
+          } else {
+             errorMessage = result.hint || 'An unknown error occurred while fetching messages.';
+          }
+          throw new Error(errorMessage);
         }
       } catch (err: any) {
         setMessagesError(err.message);
@@ -270,9 +290,6 @@ export default function ChatPage() {
   const handleSelectSalesUser = (userId: string) => {
     const user = salesUsers.find(u => u.uid === userId) || null;
     setSelectedSalesUser(user);
-    if (!user?.wahaSessionName) {
-        setChatsError(`User '${user?.name}' does not have a WAHA session name configured.`);
-    }
   };
 
   const handleSelectChat = (chatId: string) => {
