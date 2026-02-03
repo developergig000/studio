@@ -139,10 +139,16 @@ export default function WahaSessionsPage() {
   const [apiError, setApiError] = React.useState<string | null>(null);
   const { toast } = useToast();
 
+  // Memoize the Firestore query to prevent it from being recreated on every render.
+  // This is crucial for stability with real-time listeners like onSnapshot.
+  const salesUsersQuery = React.useMemo(
+    () => query(collection(db, 'users'), where('role', '==', 'SALES')),
+    [] // An empty dependency array ensures the query is created only once.
+  );
+
   // Effect 1: Fetch SALES users from Firestore
   React.useEffect(() => {
-    const q = query(collection(db, 'users'), where('role', '==', 'SALES'));
-    const unsubscribe = onSnapshot(q, 
+    const unsubscribe = onSnapshot(salesUsersQuery, 
       (querySnapshot) => {
         const usersData = querySnapshot.docs.map((doc) => ({
           uid: doc.id,
@@ -162,7 +168,7 @@ export default function WahaSessionsPage() {
       }
     );
     return () => unsubscribe();
-  }, [toast]);
+  }, [salesUsersQuery, toast]);
 
   // Effect 2: Poll WAHA for live session statuses
   React.useEffect(() => {
