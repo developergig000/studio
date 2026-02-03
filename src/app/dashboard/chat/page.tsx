@@ -14,7 +14,6 @@ import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon
 import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 
 // Helper function to get user initials
@@ -63,37 +62,31 @@ function ChatList({
     }, {} as Record<string, User[]>);
   }, [salesUsers]);
 
-  const defaultAccordionValues = Object.keys(groupedUsers);
-
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col">
         <div className="p-2">
           <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Pantau Pengguna Sales</h3>
           {salesUsers.length > 0 ? (
-            <Accordion type="multiple" defaultValue={defaultAccordionValues} className="w-full px-2">
+            <div className="w-full space-y-4 px-2">
               {Object.entries(groupedUsers).map(([group, usersInGroup]) => (
-                <AccordionItem value={group} key={group} className="border-b-0">
-                  <AccordionTrigger className="py-2 hover:no-underline">
-                    <span className="font-medium text-sm">{group}</span>
-                  </AccordionTrigger>
-                  <AccordionContent className="pb-1">
-                    <div className="flex flex-col gap-1 mt-1">
-                      {usersInGroup.map(user => (
-                        <Button
-                          key={user.uid}
-                          variant={selectedSalesUser?.uid === user.uid ? 'secondary' : 'ghost'}
-                          className="h-auto w-full justify-start p-2 text-left"
-                          onClick={() => onSelectSalesUser(user.uid)}
-                        >
-                          {user.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
+                <div key={group}>
+                  <h4 className="mb-2 text-xs font-semibold uppercase text-muted-foreground tracking-wider">{group}</h4>
+                  <div className="flex flex-col gap-1">
+                    {usersInGroup.map(user => (
+                      <Button
+                        key={user.uid}
+                        variant={selectedSalesUser?.uid === user.uid ? 'secondary' : 'ghost'}
+                        className="h-auto w-full justify-start p-2 text-left"
+                        onClick={() => onSelectSalesUser(user.uid)}
+                      >
+                        {user.name}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               ))}
-            </Accordion>
+            </div>
           ) : (
              <p className="px-2 text-sm text-muted-foreground">Tidak ada pengguna sales.</p>
           )}
