@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 // Tipe data untuk status konfigurasi
 type WahaInfo = {
@@ -25,6 +26,7 @@ type WahaInfo = {
   urlSet: boolean;
   keySet: boolean;
   keyLength: number;
+  warning?: string;
 };
 
 // Tipe data untuk hasil health check
@@ -116,7 +118,7 @@ export default function IntegrationsPage() {
           <div>
             <p className="font-semibold">Koneksi Ditolak (401 Unauthorized)</p>
             <p className="text-sm">
-              Ini biasanya terjadi karena `WAHA_API_KEY` di file `.env.local`
+              Ini biasanya terjadi karena `WAHA_API_KEY` di file `.env`
               salah atau tidak valid. Pastikan juga `WAHA_INTERNAL_URL` bukan
               alamat preview `cloudworkstations.dev`.
             </p>
@@ -167,7 +169,7 @@ export default function IntegrationsPage() {
           </div>
           <CardDescription>
             Uji konektivitas ke layanan WAHA Anda. Konfigurasi diambil dari
-            file `.env.local` di server.
+            file `.env` di server.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -196,6 +198,15 @@ export default function IntegrationsPage() {
               </p>
             )}
           </div>
+
+          {info?.warning && (
+            <Alert variant="destructive">
+              <AlertTriangle className="h-4 w-4" />
+              <AlertTitle>Perhatian Konfigurasi URL</AlertTitle>
+              <AlertDescription>{info.warning}</AlertDescription>
+            </Alert>
+          )}
+
           <Button
             onClick={handleTestConnection}
             disabled={isHealthLoading || isInfoLoading || !info?.configured}
