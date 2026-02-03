@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Logo } from '@/components/icons';
 import Link from 'next/link';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 function getInitials(name?: string | null) {
   return name
@@ -140,6 +141,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-4 border-b bg-background px-4 sm:px-6">
           <SidebarTrigger />
           <h1 className="flex-1 text-xl font-semibold">{pageTitle}</h1>
+          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
