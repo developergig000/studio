@@ -43,10 +43,20 @@ function normalizeWahaStatus(status: string | undefined): WahaSessionStatus {
     if (!status) return 'disconnected';
     const lowerCaseStatus = status.toLowerCase();
     
-    if (lowerCaseStatus.includes('connected')) return 'connected';
-    if (lowerCaseStatus.includes('qrcode')) return 'qrcode';
-    if (lowerCaseStatus.includes('loading') || lowerCaseStatus.includes('starting')) return 'loading';
+    // Handle various "connected" states
+    if (['connected', 'working', 'online', 'authenticated'].some(s => lowerCaseStatus.includes(s))) {
+        return 'connected';
+    }
+    // Handle QR code states
+    if (lowerCaseStatus.includes('qrcode') || lowerCaseStatus.includes('scan')) {
+        return 'qrcode';
+    }
+    // Handle intermediate/loading states
+    if (['loading', 'starting', 'initializing', 'poweron'].some(s => lowerCaseStatus.includes(s))) {
+        return 'loading';
+    }
     
+    // Default to disconnected for 'failed', 'error', 'stopped', or any other unknown status
     return 'disconnected';
 }
 
@@ -254,23 +264,41 @@ export default function WahaSessionsPage() {
     });
   }, [salesUsers, liveSessions]);
   
-  // Effect 3: Sync live phone numbers back to Firestore
+  // Effect 3: Sync live data (status, phone number) back to Firestore
   React.useEffect(() => {
     displayUsers.forEach(user => {
+      // Create a map of potential updates to prevent unnecessary writes
+      const updates: { wahaStatus?: WahaSessionStatus, wahaPhoneNumber?: string | null, wahaQrCode?: string | null } = {};
+
+      // 1. Sync Status: Update Firestore if the live status differs from the stored one.
+      if (user.liveWahaStatus !== user.wahaStatus) {
+        updates.wahaStatus = user.liveWahaStatus;
+      }
+      
+      // 2. Sync Phone Number: Only update if we get a new, valid number.
+      // This prevents a disconnected session from clearing a manually entered number.
       const liveNumber = user.liveWahaPhoneNumber;
       const storedNumber = user.wahaPhoneNumber;
-
-      // Only update Firestore IF...
-      // 1. We have a valid, non-empty `liveNumber` from WAHA.
-      // 2. The `liveNumber` is different from what's already stored.
-      // This prevents a `null` or empty `liveNumber` (from a disconnected session)
-      // from overwriting a valid number that was entered manually or previously synced.
       if (liveNumber && liveNumber.trim() !== '' && liveNumber !== storedNumber) {
+        updates.wahaPhoneNumber = liveNumber;
+      }
+
+      // 3. Clear Stale QR Code: If the session is no longer waiting for a QR scan,
+      // and a QR code is still stored in Firestore, clear it.
+      if (user.liveWahaStatus !== 'qrcode' && user.wahaQrCode) {
+         updates.wahaQrCode = null;
+      }
+
+      // If there are any changes to sync, perform the Firestore update.
+      if (Object.keys(updates).length > 0) {
         const userRef = doc(db, 'users', user.uid);
-        updateDoc(userRef, { wahaPhoneNumber: liveNumber });
+        updateDoc(userRef, updates).catch(error => {
+            // This error is not critical for the user, so we just log it.
+            console.error(`Failed to sync live data for user ${user.uid}:`, error);
+        });
       }
     });
-  }, [displayUsers]);
+  }, [displayUsers]); // This effect runs whenever the merged user data changes.
 
 
   const isLoading = isUsersLoading;
