@@ -114,9 +114,6 @@ function MessageBubble({ message }: { message: WahaMessage }) {
         )}
       >
         <p className="text-sm whitespace-pre-wrap">{message.body}</p>
-        <p className={cn('mt-1 text-xs opacity-70', message.fromMe ? 'text-right' : 'text-left')}>
-          {message.timestamp ? formatDistanceToNow(new Date(message.timestamp * 1000), { addSuffix: true }) : ''}
-        </p>
       </div>
     </div>
   );
@@ -134,16 +131,11 @@ function ChatWindow({
   isLoading: boolean;
   error: string | null;
 }) {
-  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom
   React.useEffect(() => {
-    if (scrollAreaRef.current) {
-        const scrollableNode = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
-        if (scrollableNode) {
-            scrollableNode.scrollTop = scrollableNode.scrollHeight;
-        }
-    }
+    messagesEndRef.current?.scrollIntoView();
   }, [messages]);
 
   if (!chat) {
@@ -169,13 +161,14 @@ function ChatWindow({
           <p className="text-sm text-muted-foreground">{chat.isGroup ? 'Group Chat' : 'Direct Message'}</p>
         </div>
       </header>
-      <ScrollArea className="flex-1" ref={scrollAreaRef}>
+      <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
           {isLoading && <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>}
           {error && <Alert variant="destructive" className="m-4"><ServerCrash className="h-4 w-4" /><AlertTitle>Gagal memuat pesan</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
           {!isLoading && !error && messages.map(msg => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
+          <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
       <div className="border-t p-3 bg-muted/50 text-center">
@@ -260,7 +253,10 @@ export default function ChatPage() {
 
           // HANDLE ERRORS AND RETRIES
           if (result.ok && !Array.isArray(result.data)) {
-             throw new Error("Format respons WAHA berbeda. Silakan periksa log server untuk melihat payload mentah.");
+             setChatsError("Format respons WAHA berbeda. Silakan periksa log server untuk melihat payload mentah.");
+             setChatsLoading(false);
+             setLoadingMessage(null);
+             return;
           }
 
           if (!result.ok && result.status === 404) {
@@ -270,7 +266,7 @@ export default function ChatPage() {
             setLoadingMessage(`Sesi ditemukan, menunggu sinkronisasi obrolan... (Percobaan ${attempt}/${MAX_RETRIES})`);
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           } else {
-            const errorMessage = result.hint || `Gagal mengambil obrolan untuk sesi '${sessionName}'.`;
+            const errorMessage = result.hint || `Gagal mengambil obrolan untuk sesi '${sessionName}'. Pastikan nama sesi sudah benar di Manajemen Pengguna dan sesi tersebut telah sepenuhnya terhubung dan siap di WAHA.`;
             throw new Error(errorMessage);
           }
         } catch (err: any) {

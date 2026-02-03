@@ -1,3 +1,4 @@
+
 import type { Timestamp } from 'firebase/firestore';
 
 export type UserRole = "HEAD_SALES" | "SALES";
@@ -36,5 +37,4 @@ export type WahaMessage = {
   body: string;
   fromMe: boolean;
   timestamp: number;
-  ack: number;
 };

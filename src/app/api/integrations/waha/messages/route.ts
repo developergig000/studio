@@ -28,7 +28,6 @@ function normalizeMessages(responseData: any): WahaMessage[] | null {
             body: msg.body || msg.text || '', // some use text
             fromMe: msg.fromMe || msg.isFromMe || false,
             timestamp: msg.timestamp || 0,
-            ack: msg.ack || 0,
         }));
     }
 
@@ -98,4 +97,3 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ ok: false, hint: 'Could not attempt any WAHA API paths for messages.' }, { status: 500 });
 }
-
