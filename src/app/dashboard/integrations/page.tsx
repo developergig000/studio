@@ -61,7 +61,7 @@ export default function IntegrationsPage() {
           setInfo(data);
         }
       } catch (error) {
-        console.error('Failed to fetch integration info:', error);
+        // Error handling is done by checking the 'info' state
       } finally {
         setIsInfoLoading(false);
       }
@@ -144,8 +144,8 @@ export default function IntegrationsPage() {
             Target: {healthResult.targetUrl}
           </p>
         </div>
-      );
-    }
+      </div>
+    );
   };
 
   return (
