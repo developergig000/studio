@@ -34,11 +34,15 @@ export async function wahaRequest(
   const apiKey = process.env.WAHA_API_KEY;
 
   if (!baseURL || !apiKey) {
+    const hintMessage =
+      process.env.NODE_ENV === 'production'
+        ? 'Konfigurasi server error: WAHA_INTERNAL_URL atau WAHA_API_KEY tidak diatur di environment hosting Anda (misalnya Vercel).'
+        : 'Konfigurasi server error: WAHA_INTERNAL_URL atau WAHA_API_KEY tidak diatur di file .env Anda.';
     return {
       ok: false,
       status: 500,
       targetUrl: 'N/A',
-      hint: 'Konfigurasi server error: WAHA_INTERNAL_URL atau WAHA_API_KEY tidak diatur di file .env.local.',
+      hint: hintMessage,
     };
   }
 
