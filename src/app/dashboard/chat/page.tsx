@@ -109,11 +109,6 @@ function ChatList({
                 <p className="font-semibold">{chat.name}</p>
                 <p className="text-sm text-muted-foreground truncate">{chat.lastMessage?.body}</p>
               </div>
-              {chat.timestamp && (
-                <p className="text-xs text-muted-foreground self-start">
-                  {formatDistanceToNow(new Date(chat.timestamp * 1000), { addSuffix: true })}
-                </p>
-              )}
             </button>
           ))}
         </div>
@@ -173,7 +168,7 @@ function MessageBubble({ message }: { message: WahaMessage }) {
     return (
         <div className={cn('flex items-end gap-2', message.fromMe ? 'justify-end' : 'justify-start')}>
             <div className={cn(
-                'max-w-xs rounded-lg px-3 py-2 md:max-w-md',
+                'max-w-xs rounded-lg px-3 py-2 md:max-w-md break-words',
                 message.fromMe ? 'bg-primary text-primary-foreground' : 'bg-muted'
             )}>
                 {renderContent()}
@@ -227,7 +222,7 @@ function ChatWindow({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col overflow-hidden">
       <header className="flex items-center gap-3 border-b p-3 pr-4">
         <Avatar className="h-10 w-10 border">
           <AvatarImage src={chat.profilePicUrl} />
