@@ -2,161 +2,93 @@
 
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { User, Chat, Message } from '@/lib/types';
-import { collection, query, where, getDocs, doc, onSnapshot, orderBy, addDoc, serverTimestamp, setDoc, getDoc } from 'firebase/firestore';
+import type { User, WahaChat, WahaMessage } from '@/lib/types';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Send, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Loader2, MessageCircle, ServerCrash } from 'lucide-react';
+import type { WahaApiResponse } from '@/lib/wahaClient';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 // Helper function to get user initials
 function getInitials(name?: string | null) {
-  return name?.split(' ').map((n) => n[0]).join('') || 'U';
+  if (!name) return 'WA';
+  const parts = name.split(' ');
+  if (parts.length > 1) {
+    return parts[0][0] + parts[parts.length - 1][0];
+  }
+  return name.substring(0, 2);
 }
 
 // ChatList component (Left Panel)
 function ChatList({
-  currentUser,
+  salesUsers,
+  onSelectSalesUser,
+  selectedSalesUser,
+  chats,
   onSelectChat,
+  isLoading,
+  error,
 }: {
-  currentUser: User;
-  onSelectChat: (context: { recipient: User; chatId?: string }) => void;
+  salesUsers: User[];
+  onSelectSalesUser: (userId: string) => void;
+  selectedSalesUser: User | null;
+  chats: WahaChat[];
+  onSelectChat: (chatId: string) => void;
+  isLoading: boolean;
+  error: string | null;
 }) {
-  const [users, setUsers] = React.useState<User[]>([]);
-  const [chats, setChats] = React.useState<Chat[]>([]);
-  const [loading, setLoading] = React.useState(true);
-
-  React.useEffect(() => {
-    const fetchChatsAndUsers = async () => {
-      setLoading(true);
-      if (currentUser.role === 'HEAD_SALES') {
-        // HEAD_SALES: Fetch all SALES users for the dropdown
-        const usersQuery = query(collection(db, 'users'), where('role', '==', 'SALES'));
-        const usersSnapshot = await getDocs(usersQuery);
-        const fetchedUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
-        setUsers(fetchedUsers);
-
-        // HEAD_SALES: Fetch all conversations to monitor
-        const chatsQuery = query(collection(db, 'chats'), orderBy('lastMessageTimestamp', 'desc'));
-        const unsubscribe = onSnapshot(chatsQuery, (snapshot) => {
-          const fetchedChats = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat));
-          setChats(fetchedChats);
-          setLoading(false);
-        });
-        return unsubscribe;
-      } else {
-        // SALES: Fetch other SALES users to chat with
-        const usersQuery = query(collection(db, 'users'), where('role', '==', 'SALES'), where('id', '!=', currentUser.uid));
-        const snapshot = await getDocs(usersQuery);
-        const fetchedUsers = snapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
-        setUsers(fetchedUsers);
-        setLoading(false);
-      }
-    };
-
-    const unsubscribePromise = fetchChatsAndUsers();
-
-    return () => {
-      unsubscribePromise.then(unsubscribe => {
-        if (unsubscribe && typeof unsubscribe === 'function') {
-          unsubscribe();
-        }
-      });
-    };
-  }, [currentUser]);
-
-  if (loading) {
-    return <div className="p-4 text-center">Loading chats...</div>;
-  }
-
-  const handleMonitorChatSelect = async (chat: Chat) => {
-    // For HEAD_SALES monitoring a chat.
-    // The recipient is one of the participants, just to populate the header.
-    // The crucial part is passing the correct chatId.
-    const recipientId = chat.participants.find(p => p !== currentUser.uid) || chat.participants[0];
-    if (recipientId) {
-      const userDoc = await getDoc(doc(db, 'users', recipientId));
-      if (userDoc.exists()) {
-        onSelectChat({ recipient: { ...userDoc.data(), uid: userDoc.id } as User, chatId: chat.id });
-      }
-    }
-  };
-
-  const handleSalesUserSelect = (userId: string) => {
-    // For HEAD_SALES starting a direct chat with a SALES user.
-    const selectedUser = users.find(u => u.uid === userId);
-    if (selectedUser) {
-      onSelectChat({ recipient: selectedUser });
-    }
-  };
-
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-y-1">
-        {currentUser.role === 'HEAD_SALES' && (
-          <div className="p-2 border-b">
-            <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Start a new chat</h3>
-            <Select onValueChange={handleSalesUserSelect}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a Sales member" />
-              </SelectTrigger>
-              <SelectContent>
-                {users.map(user => (
-                  <SelectItem key={user.uid} value={user.uid}>
-                    {user.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+        <div className="p-2 border-b">
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Monitor Sales User</h3>
+          <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid || ''}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a Sales member" />
+            </SelectTrigger>
+            <SelectContent>
+              {salesUsers.map(user => (
+                <SelectItem key={user.uid} value={user.uid}>
+                  {user.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="p-2">
-            {currentUser.role === 'HEAD_SALES' && <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">All Conversations</h3>}
-            {currentUser.role === 'SALES' && users.map(user => (
-              <button
-                key={user.uid}
-                onClick={() => onSelectChat({ recipient: user })}
-                className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
-              >
-                <Avatar className="h-10 w-10 border">
-                  <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1 truncate">
-                  <p className="font-semibold">{user.name}</p>
-                  <p className="text-sm text-muted-foreground">Sales Team</p>
-                </div>
-              </button>
-            ))}
-            {currentUser.role === 'HEAD_SALES' && chats.map(chat => {
-              return (
-                <button
-                  key={chat.id}
-                  onClick={() => handleMonitorChatSelect(chat)}
-                  className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
-                >
-                  <Avatar className="h-10 w-10 border">
-                    <AvatarFallback className='text-xs'>
-                      {Object.values(chat.participantNames).map(name => getInitials(name)).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 truncate">
-                    <p className="font-semibold">{Object.values(chat.participantNames).join(' & ')}</p>
-                    <p className="text-sm text-muted-foreground truncate">{chat.lastMessageText}</p>
-                  </div>
-                  {chat.lastMessageTimestamp && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(chat.lastMessageTimestamp.toDate(), { addSuffix: true })}
-                    </p>
-                  )}
-                </button>
-              )
-            })}
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">WhatsApp Chats</h3>
+          {isLoading && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>}
+          {error && <Alert variant="destructive" className="m-2"><AlertDescription>{error}</AlertDescription></Alert>}
+          {!isLoading && !error && chats.length === 0 && selectedSalesUser && (
+            <p className="p-4 text-sm text-center text-muted-foreground">No WhatsApp chats found for this user.</p>
+          )}
+          {chats.map(chat => (
+            <button
+              key={chat.id}
+              onClick={() => onSelectChat(chat.id)}
+              className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
+            >
+              <Avatar className="h-10 w-10 border">
+                <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
+              </Avatar>
+              <div className="flex-1 truncate">
+                <p className="font-semibold">{chat.name}</p>
+                <p className="text-sm text-muted-foreground truncate">{chat.lastMessage?.body}</p>
+              </div>
+              {chat.timestamp && (
+                <p className="text-xs text-muted-foreground self-start">
+                  {formatDistanceToNow(new Date(chat.timestamp * 1000), { addSuffix: true })}
+                </p>
+              )}
+            </button>
+          ))}
         </div>
       </div>
     </ScrollArea>
@@ -164,18 +96,18 @@ function ChatList({
 }
 
 // MessageBubble component
-function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessage: boolean }) {
+function MessageBubble({ message }: { message: WahaMessage }) {
   return (
-    <div className={cn('flex items-end gap-2', isOwnMessage ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex items-end gap-2', message.fromMe ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
           'max-w-xs rounded-lg px-3 py-2 md:max-w-md',
-          isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-muted'
+          message.fromMe ? 'bg-primary text-primary-foreground' : 'bg-muted'
         )}
       >
-        <p className="text-sm">{message.text}</p>
-        <p className={cn('mt-1 text-xs opacity-70', isOwnMessage ? 'text-right' : 'text-left')}>
-          {message.timestamp ? formatDistanceToNow(message.timestamp.toDate(), { addSuffix: true }) : ''}
+        <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+        <p className={cn('mt-1 text-xs opacity-70', message.fromMe ? 'text-right' : 'text-left')}>
+          {message.timestamp ? formatDistanceToNow(new Date(message.timestamp * 1000), { addSuffix: true }) : ''}
         </p>
       </div>
     </div>
@@ -183,75 +115,18 @@ function MessageBubble({ message, isOwnMessage }: { message: Message; isOwnMessa
 }
 
 // ChatWindow component (Right Panel)
-function ChatWindow({ currentUser, context }: { currentUser: User; context: { recipient: User; chatId?: string } | null }) {
-  const { recipient, chatId: contextChatId } = context || { recipient: null, chatId: undefined };
-  
-  const [messages, setMessages] = React.useState<Message[]>([]);
-  const [newMessage, setNewMessage] = React.useState('');
-  const [chatId, setChatId] = React.useState<string | null>(null);
-  const [isReadOnly, setIsReadOnly] = React.useState(false);
-  const [chatHeader, setChatHeader] = React.useState<{name: string, description: string}>({name: '', description: ''});
+function ChatWindow({
+  chat,
+  messages,
+  isLoading,
+  error
+}: {
+  chat: WahaChat | null;
+  messages: WahaMessage[];
+  isLoading: boolean;
+  error: string | null;
+}) {
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
-
-  React.useEffect(() => {
-    // Determine the chat ID. Either from context (monitoring) or by creating it (direct chat).
-    if (contextChatId) {
-      setChatId(contextChatId);
-    } else if (currentUser && recipient) {
-      const newChatId = [currentUser.uid, recipient.uid].sort().join('_');
-      setChatId(newChatId);
-    } else {
-        setChatId(null);
-    }
-  }, [currentUser, recipient, contextChatId]);
-
-  React.useEffect(() => {
-    if (!chatId) {
-        setMessages([]);
-        return;
-    };
-
-    const messagesQuery = query(collection(db, 'chats', chatId, 'messages'), orderBy('timestamp', 'asc'));
-    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const fetchedMessages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message));
-      setMessages(fetchedMessages);
-    });
-
-    return unsubscribe;
-  }, [chatId]);
-  
-  React.useEffect(() => {
-    // Set up chat header and read-only status
-    const setupChat = async () => {
-        if (!chatId || !recipient) return;
-        
-        const chatDocRef = doc(db, 'chats', chatId);
-        const chatDoc = await getDoc(chatDocRef);
-
-        if (chatDoc.exists()) {
-            const chatData = chatDoc.data() as Chat;
-            setChatHeader({
-                name: Object.values(chatData.participantNames).join(' & '),
-                description: 'Conversation'
-            });
-            // HEAD_SALES is read-only if not a participant
-            if (currentUser.role === 'HEAD_SALES' && !chatData.participants.includes(currentUser.uid)) {
-                setIsReadOnly(true);
-            } else {
-                setIsReadOnly(false);
-            }
-        } else {
-            // Chat doesn't exist, must be a new 1-on-1 chat
-            setChatHeader({
-                name: recipient.name || '',
-                description: recipient.role || ''
-            });
-            setIsReadOnly(false); // New chats are never read-only
-        }
-    };
-    
-    setupChat();
-  }, [recipient, chatId, currentUser.role, currentUser.uid]);
 
   // Auto-scroll to bottom
   React.useEffect(() => {
@@ -263,50 +138,13 @@ function ChatWindow({ currentUser, context }: { currentUser: User; context: { re
     }
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !chatId || !currentUser || !recipient) return;
-
-    const messageData = {
-      text: newMessage,
-      senderId: currentUser.uid,
-      timestamp: serverTimestamp(),
-    };
-    
-    await addDoc(collection(db, 'chats', chatId, 'messages'), messageData);
-    
-    const chatRef = doc(db, 'chats', chatId);
-    const chatDoc = await getDoc(chatRef);
-    let participants = [currentUser.uid, recipient.uid];
-    let participantNames = {
-        [currentUser.uid]: currentUser.name || 'Unknown',
-        [recipient.uid]: recipient.name || 'Unknown',
-    }
-    
-    // If chat exists, merge participants and names to avoid overwriting group chats
-    if (chatDoc.exists()) {
-        const existingData = chatDoc.data();
-        participants = [...new Set([...existingData.participants, ...participants])];
-        participantNames = {...existingData.participantNames, ...participantNames};
-    }
-
-
-    await setDoc(chatRef, {
-        participants: participants.sort(),
-        participantNames,
-        lastMessageText: newMessage,
-        lastMessageTimestamp: serverTimestamp(),
-    }, { merge: true });
-
-    setNewMessage('');
-  };
-
-  if (!recipient) {
+  if (!chat) {
     return (
       <div className="flex h-full items-center justify-center bg-muted/50">
-        <div className="text-center">
-          <p className="text-lg font-medium">Select a chat to start messaging</p>
-          <p className="text-muted-foreground">or start a new conversation.</p>
+        <div className="text-center text-muted-foreground">
+          <MessageCircle className="mx-auto h-12 w-12" />
+          <p className="mt-4 text-lg font-medium">Select a user and a chat to view messages</p>
+          <p>This is a read-only view for monitoring purposes.</p>
         </div>
       </div>
     );
@@ -316,45 +154,133 @@ function ChatWindow({ currentUser, context }: { currentUser: User; context: { re
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b p-3">
         <Avatar className="h-10 w-10 border">
-          <AvatarFallback>{getInitials(chatHeader.name)}</AvatarFallback>
+          <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
         </Avatar>
         <div>
-          <p className="font-semibold">{chatHeader.name}</p>
-          <p className="text-sm text-muted-foreground">{chatHeader.description}</p>
+          <p className="font-semibold">{chat.name}</p>
+          <p className="text-sm text-muted-foreground">{chat.isGroup ? 'Group Chat' : 'Direct Message'}</p>
         </div>
       </header>
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-4 space-y-4">
-          {messages.map(msg => (
-            <MessageBubble key={msg.id} message={msg} isOwnMessage={msg.senderId === currentUser.uid} />
+          {isLoading && <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>}
+          {error && <Alert variant="destructive" className="m-4"><ServerCrash className="h-4 w-4" /><AlertTitle>Failed to load messages</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+          {!isLoading && !error && messages.map(msg => (
+            <MessageBubble key={msg.id} message={msg} />
           ))}
         </div>
       </ScrollArea>
-      { !isReadOnly && (
-        <div className="border-t p-4">
-          <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-            <Input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
-              autoComplete="off"
-            />
-            <Button type="submit" size="icon" disabled={!newMessage.trim()}>
-              <Send />
-            </Button>
-          </form>
-        </div>
-      )}
+      <div className="border-t p-3 bg-muted/50 text-center">
+        <p className="text-xs text-muted-foreground">This is a read-only view. Replying is not available.</p>
+      </div>
     </div>
   );
 }
 
 // Main Page Component
 export default function ChatPage() {
-  const { user, loading } = useAuth();
-  const [selectedChatContext, setSelectedChatContext] = React.useState<{ recipient: User; chatId?: string } | null>(null);
+  const { user, loading: authLoading } = useAuth();
+  
+  // State for left panel
+  const [salesUsers, setSalesUsers] = React.useState<User[]>([]);
+  const [selectedSalesUser, setSelectedSalesUser] = React.useState<User | null>(null);
+  const [wahaChats, setWahaChats] = React.useState<WahaChat[]>([]);
+  const [chatsLoading, setChatsLoading] = React.useState(false);
+  const [chatsError, setChatsError] = React.useState<string | null>(null);
 
-  if (loading || !user) {
+  // State for right panel
+  const [selectedChat, setSelectedChat] = React.useState<WahaChat | null>(null);
+  const [wahaMessages, setWahaMessages] = React.useState<WahaMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = React.useState(false);
+  const [messagesError, setMessagesError] = React.useState<string | null>(null);
+
+
+  // Effect to fetch SALES users for the dropdown
+  React.useEffect(() => {
+    async function fetchSalesUsers() {
+      if (user?.role !== 'HEAD_SALES') return;
+      const usersQuery = query(collection(db, 'users'), where('role', '==', 'SALES'));
+      const usersSnapshot = await getDocs(usersQuery);
+      const fetchedUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id } as User));
+      setSalesUsers(fetchedUsers);
+    }
+    fetchSalesUsers();
+  }, [user]);
+
+  // Effect to fetch WAHA chats when a sales user is selected
+  React.useEffect(() => {
+    async function fetchWahaChats() {
+      if (!selectedSalesUser || !selectedSalesUser.wahaSessionName) {
+        setWahaChats([]);
+        return;
+      }
+      setChatsLoading(true);
+      setChatsError(null);
+      setWahaChats([]);
+      setSelectedChat(null);
+      setWahaMessages([]);
+
+      try {
+        const response = await fetch(`/api/integrations/waha/chats?sessionName=${selectedSalesUser.wahaSessionName}`);
+        const result: WahaApiResponse = await response.json();
+        if (result.ok && Array.isArray(result.data)) {
+          // Sort chats by last message timestamp
+          const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
+          setWahaChats(sortedChats);
+        } else {
+          throw new Error(result.hint || 'Failed to fetch chats from WAHA.');
+        }
+      } catch (err: any) {
+        setChatsError(err.message);
+      } finally {
+        setChatsLoading(false);
+      }
+    }
+    fetchWahaChats();
+  }, [selectedSalesUser]);
+
+  // Effect to fetch messages when a chat is selected
+  React.useEffect(() => {
+    async function fetchWahaMessages() {
+      if (!selectedChat || !selectedSalesUser?.wahaSessionName) {
+        setWahaMessages([]);
+        return;
+      };
+
+      setMessagesLoading(true);
+      setMessagesError(null);
+      try {
+        const response = await fetch(`/api/integrations/waha/messages?sessionName=${selectedSalesUser.wahaSessionName}&chatId=${selectedChat.id}`);
+        const result: WahaApiResponse = await response.json();
+        if (result.ok && Array.isArray(result.data)) {
+           setWahaMessages(result.data.reverse()); // WAHA usually returns newest first
+        } else {
+          throw new Error(result.hint || 'Failed to fetch messages.');
+        }
+      } catch (err: any) {
+        setMessagesError(err.message);
+      } finally {
+        setMessagesLoading(false);
+      }
+    }
+    fetchWahaMessages();
+  }, [selectedChat, selectedSalesUser]);
+
+
+  const handleSelectSalesUser = (userId: string) => {
+    const user = salesUsers.find(u => u.uid === userId) || null;
+    setSelectedSalesUser(user);
+    if (!user?.wahaSessionName) {
+        setChatsError(`User '${user?.name}' does not have a WAHA session name configured.`);
+    }
+  };
+
+  const handleSelectChat = (chatId: string) => {
+    const chat = wahaChats.find(c => c.id === chatId) || null;
+    setSelectedChat(chat);
+  }
+
+  if (authLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -367,10 +293,23 @@ export default function ChatPage() {
       <CardContent className="h-full p-0">
         <div className="grid h-full grid-cols-1 md:grid-cols-[320px_1fr]">
           <div className="border-r h-full overflow-y-auto">
-            <ChatList currentUser={user} onSelectChat={setSelectedChatContext} />
+            <ChatList
+              salesUsers={salesUsers}
+              onSelectSalesUser={handleSelectSalesUser}
+              selectedSalesUser={selectedSalesUser}
+              chats={wahaChats}
+              onSelectChat={handleSelectChat}
+              isLoading={chatsLoading}
+              error={chatsError}
+            />
           </div>
           <div className="h-full">
-            <ChatWindow currentUser={user} context={selectedChatContext} />
+            <ChatWindow
+              chat={selectedChat}
+              messages={wahaMessages}
+              isLoading={messagesLoading}
+              error={messagesError}
+            />
           </div>
         </div>
       </CardContent>

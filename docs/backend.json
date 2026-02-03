@@ -66,53 +66,6 @@
         "role",
         "createdAt"
       ]
-    },
-    "Chat": {
-      "title": "Chat",
-      "description": "Represents a conversation between two or more users.",
-      "type": "object",
-      "properties": {
-        "participants": {
-          "type": "array",
-          "description": "An array of user UIDs who are part of the chat.",
-          "items": { "type": "string" }
-        },
-        "lastMessageText": {
-          "type": "string",
-          "description": "The text of the last message sent in the chat."
-        },
-        "lastMessageTimestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The timestamp of the last message."
-        },
-        "participantNames": {
-          "type": "object",
-          "description": "A map of participant UIDs to their names for easy display."
-        }
-      },
-      "required": ["participants"]
-    },
-    "Message": {
-      "title": "Message",
-      "description": "Represents a single message within a chat.",
-      "type": "object",
-      "properties": {
-        "text": {
-          "type": "string",
-          "description": "The content of the message."
-        },
-        "senderId": {
-          "type": "string",
-          "description": "The UID of the user who sent the message."
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The timestamp when the message was sent."
-        }
-      },
-      "required": ["text", "senderId", "timestamp"]
     }
   },
   "auth": {
@@ -138,29 +91,6 @@
             }
           ]
         }
-      },
-      {
-        "path": "/chats/{chatId}",
-        "definition": {
-            "entityName": "Chat",
-            "schema": { "$ref": "#/backend/entities/Chat" },
-            "description": "Stores metadata for each chat conversation.",
-            "params": [
-                { "name": "chatId", "description": "A unique ID for the chat, typically a combination of participant UIDs." }
-            ]
-        }
-      },
-      {
-          "path": "/chats/{chatId}/messages/{messageId}",
-          "definition": {
-              "entityName": "Message",
-              "schema": { "$ref": "#/backend/entities/Message" },
-              "description": "Stores all messages for a specific chat, ordered by timestamp.",
-              "params": [
-                  { "name": "chatId", "description": "The ID of the parent chat." },
-                  { "name": "messageId", "description": "The unique ID for the message." }
-              ]
-          }
       }
     ],
     "reasoning": "The Firestore structure is designed to ensure secure and efficient data access based on user roles (SALES and HEAD_SALES). The core principle is Authorization Independence, achieved by storing the `role` directly within the `users/{uid}` document. This avoids the need for `get()` calls in security rules to fetch the user's role, making operations atomic and easier to debug. The structure also addresses the need for role-based filtering of user data, where a HEAD_SALES user needs to read all users, but a SALES user can only read their own document. Since a path-based approach is adopted, only one collection is used. This approach leverages the DBAC (Database-based Access Control) principle, where roles are stored in the database itself rather than using custom claims."

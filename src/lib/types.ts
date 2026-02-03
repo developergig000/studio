@@ -18,17 +18,23 @@ export type User = {
   wahaQrCode?: string;
 };
 
-export type Message = {
-  id: string;
-  text: string;
-  senderId: string;
-  timestamp: Timestamp;
+// For WAHA chats
+export type WahaChat = {
+  id: string; // e.g., '1234567890@c.us'
+  name: string; // Contact name or group subject
+  isGroup: boolean;
+  timestamp: number;
+  lastMessage: {
+      body: string;
+      timestamp: number;
+  } | null;
 };
 
-export type Chat = {
+// For WAHA messages
+export type WahaMessage = {
   id: string;
-  participants: string[];
-  participantNames: { [key: string]: string };
-  lastMessageText?: string;
-  lastMessageTimestamp?: Timestamp;
+  body: string;
+  fromMe: boolean;
+  timestamp: number;
+  ack: number;
 };

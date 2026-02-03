@@ -123,44 +123,5 @@ service cloud.firestore {
       // WRITE: A user can only delete their own existing profile.
       allow delete: if isExistingOwner(userId);
     }
-    
-    /**
-     * @description Manages chat conversations and messages.
-     *   'HEAD_SALES' can read all chats.
-     *   'SALES' users can only read/write chats they are a participant in.
-     * @path /chats/{chatId}
-     * @principle Enforces participant-based access control for conversations.
-     */
-    match /chats/{chatId} {
-      // A user can read a chat document if they are a participant, or if they are HEAD_SALES.
-      allow read: if isHeadSales() || request.auth.uid in resource.data.participants;
-    
-      // A user can create a chat if they are one of the participants.
-      allow create: if request.auth.uid in request.resource.data.participants;
-      
-      // A user can update a chat's metadata (e.g., last message) if they are a participant.
-      allow update: if isHeadSales() || request.auth.uid in resource.data.participants;
-      
-      // Deny deletion of chat histories for now.
-      allow delete: if false;
-    
-      /**
-       * @description Manages messages within a chat.
-       * @path /chats/{chatId}/messages/{messageId}
-       */
-      match /messages/{messageId} {
-        // Helper function to get the parent chat document.
-        function getParentChat() {
-          return get(/databases/$(database)/documents/chats/$(chatId));
-        }
-        
-        // A user can read messages in a chat if they are a participant of that chat, or if they are HEAD_SALES.
-        allow read: if isHeadSales() || request.auth.uid in getParentChat().data.participants;
-    
-        // A user can write a message if they are a participant and the senderId matches their UID.
-        allow write: if (request.auth.uid in getParentChat().data.participants) 
-                      && request.resource.data.senderId == request.auth.uid;
-      }
-    }
   }
 }
