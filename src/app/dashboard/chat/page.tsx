@@ -135,7 +135,7 @@ function ChatWindow({
 
   // Auto-scroll to bottom
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView();
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   if (!chat) {
@@ -234,17 +234,18 @@ export default function ChatPage() {
 
         try {
           const response = await fetch(`/api/integrations/waha/chats?sessionName=${sessionName}`, { signal: abortController.signal });
-          if (!response.ok) {
-            // This handles network errors or errors from our Next.js API route itself
-            throw new Error(`Server error: ${response.statusText}`);
-          }
           
           const result: WahaApiResponse = await response.json();
 
-          if (result.ok && Array.isArray(result.data)) {
-            // SUCCESS
-            const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
-            setWahaChats(sortedChats);
+          if (result.ok) {
+            // SUCCESS: Response is ok, now check data format
+            if (Array.isArray(result.data)) {
+                const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
+                setWahaChats(sortedChats);
+            } else {
+                // Response is OK, but data is not an array. Could be an empty state for a new user.
+                setWahaChats([]);
+            }
             setChatsError(null);
             setLoadingMessage(null);
             setChatsLoading(false);
@@ -252,13 +253,6 @@ export default function ChatPage() {
           }
 
           // HANDLE ERRORS AND RETRIES
-          if (result.ok && !Array.isArray(result.data)) {
-             setChatsError("Format respons WAHA berbeda. Silakan periksa log server untuk melihat payload mentah.");
-             setChatsLoading(false);
-             setLoadingMessage(null);
-             return;
-          }
-
           if (!result.ok && result.status === 404) {
              if (attempt === MAX_RETRIES) {
               throw new Error(`Sesi '${sessionName}' tidak merespon setelah beberapa kali percobaan. Pastikan sesi berjalan dengan benar di layanan WAHA.`);
@@ -274,7 +268,11 @@ export default function ChatPage() {
              console.log('Fetch for chats aborted.');
              return;
            }
-           setChatsError(err.message);
+           if (err instanceof SyntaxError) { // Catches JSON parsing errors
+            setChatsError("Gagal mem-parsing respons dari WAHA. Layanan mungkin sedang tidak aktif atau mengembalikan format yang tidak valid.");
+           } else {
+            setChatsError(err.message);
+           }
            setChatsLoading(false);
            setLoadingMessage(null);
            return;
@@ -355,7 +353,7 @@ export default function ChatPage() {
               loadingMessage={loadingMessage}
             />
           </div>
-          <div className="h-full">
+          <div className="h-full overflow-hidden">
             <ChatWindow
               chat={selectedChat}
               messages={wahaMessages}
