@@ -20,6 +20,8 @@ function normalizeChats(responseData: any): WahaChat[] | null {
         rawChats = responseData.chats;
     } else if (responseData && Array.isArray(responseData.result)) {
         rawChats = responseData.result;
+    } else if (responseData && Array.isArray(responseData.response)) { // Added for more flexibility
+        rawChats = responseData.response;
     }
 
     if (rawChats.length > 0) {
@@ -27,7 +29,7 @@ function normalizeChats(responseData: any): WahaChat[] | null {
         return rawChats.map(chat => ({
             id: chat.id || '',
             name: chat.name || chat.contact?.name || chat.id || 'Unknown',
-            profilePicUrl: chat.profilePicUrl || chat.picUrl || chat.avatar || null,
+            profilePicUrl: chat.profilePicUrl || chat.picUrl || chat.avatar || chat.contact?.profilePicUrl || null, // Check inside contact object as well
             isGroup: chat.isGroup || false,
             timestamp: chat.timestamp || 0,
             lastMessage: chat.lastMessage ? {
