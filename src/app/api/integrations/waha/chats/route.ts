@@ -1,4 +1,3 @@
-'use client';
 
 import { wahaRequest, type WahaApiResponse } from '@/lib/wahaClient';
 import { NextResponse } from 'next/server';
