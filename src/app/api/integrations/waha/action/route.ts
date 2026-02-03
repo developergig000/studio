@@ -32,11 +32,12 @@ export async function POST(request: Request) {
         if (!userId) {
           return NextResponse.json({ hint: 'userId is required for start action' }, { status: 400 });
         }
-        const newSessionName = `session-${userId}`;
+        // Use the provided sessionName if it's a non-empty string, otherwise create a new one as a fallback.
+        const sessionToStart = sessionName && sessionName.trim() !== '' ? sessionName : `session-${userId}`;
         response = await wahaRequest({
           path: '/api/sessions/start',
           method: 'POST',
-          body: { name: newSessionName },
+          body: { name: sessionToStart },
         });
         break;
       
