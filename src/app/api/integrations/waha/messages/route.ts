@@ -37,7 +37,7 @@ function normalizeMessages(responseData: any): WahaMessage[] | null {
 
 /**
  * Endpoint to fetch messages for a specific chat within a WAHA session.
- * It resiliently tries multiple common API paths.
+ * It resiliently tries multiple common API paths to support various WAHA forks.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -51,10 +51,20 @@ export async function GET(request: Request) {
     );
   }
 
-  // Define a list of possible endpoint paths to try. Include query params.
+  // Define a list of possible endpoint paths to try, in order of priority.
+  // This covers variations across different WAHA forks.
   const possiblePaths = [
+    // Pattern 1: /api/sessions/{session}/chats/{chatId}/messages (Common)
     `/api/sessions/${sessionName}/chats/${chatId}/messages?limit=50`,
-    `/api/sessions/${sessionName}/messages?chatId=${chatId}&limit=50`, // Some forks use this pattern
+
+    // Pattern 2: /api/{session}/messages?chatId={chatId}
+    `/api/${sessionName}/messages?chatId=${chatId}&limit=50`,
+
+    // Pattern 3: /api/messages?session={session}&chatId={chatId}
+    `/api/messages?chatId=${chatId}&session=${sessionName}&limit=50`,
+    
+    // Pattern 4 (Legacy/Less common): /api/sessions/{session}/messages?chatId={chatId}
+    `/api/sessions/${sessionName}/messages?chatId=${chatId}&limit=50`,
   ];
 
   let lastResponse: WahaApiResponse | null = null;
@@ -81,10 +91,11 @@ export async function GET(request: Request) {
   
   if (lastResponse) {
     if (!lastResponse.ok) {
-        lastResponse.hint = `All API paths for messages failed. Last attempt on ${lastResponse.targetUrl} failed with status ${lastResponse.status}.`;
+        lastResponse.hint = `All API paths for messages failed. Last attempt on ${lastResponse.targetUrl} failed with status ${lastResponse.status}. This usually means the session name is correct but the WAHA service version is incompatible or the endpoint is wrong.`;
     }
     return NextResponse.json(lastResponse, { status: lastResponse.status === 500 ? 500 : 200 });
   }
 
   return NextResponse.json({ ok: false, hint: 'Could not attempt any WAHA API paths for messages.' }, { status: 500 });
 }
+
