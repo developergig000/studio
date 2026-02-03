@@ -50,7 +50,7 @@ function ChatList({
           <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Monitor Sales User</h3>
           <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid || ''}>
             <SelectTrigger>
-              <SelectValue placeholder="Select a Sales member" />
+              <SelectValue placeholder="Pilih anggota Sales" />
             </SelectTrigger>
             <SelectContent>
               {salesUsers.map(user => (
@@ -67,7 +67,7 @@ function ChatList({
           {isLoading && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>}
           {error && <Alert variant="destructive" className="m-2"><AlertDescription>{error}</AlertDescription></Alert>}
           {!isLoading && !error && chats.length === 0 && selectedSalesUser && (
-            <p className="p-4 text-sm text-center text-muted-foreground">No WhatsApp chats found for this user.</p>
+            <p className="p-4 text-sm text-center text-muted-foreground">Tidak ada obrolan WhatsApp yang ditemukan untuk pengguna ini.</p>
           )}
           {chats.map(chat => (
             <button
@@ -143,8 +143,8 @@ function ChatWindow({
       <div className="flex h-full items-center justify-center bg-muted/50">
         <div className="text-center text-muted-foreground">
           <MessageCircle className="mx-auto h-12 w-12" />
-          <p className="mt-4 text-lg font-medium">Select a user and a chat to view messages</p>
-          <p>This is a read-only view for monitoring purposes.</p>
+          <p className="mt-4 text-lg font-medium">Pilih pengguna dan obrolan untuk melihat pesan</p>
+          <p>Ini adalah tampilan baca-saja untuk tujuan pemantauan.</p>
         </div>
       </div>
     );
@@ -164,14 +164,14 @@ function ChatWindow({
       <ScrollArea className="flex-1" ref={scrollAreaRef}>
         <div className="p-4 space-y-4">
           {isLoading && <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>}
-          {error && <Alert variant="destructive" className="m-4"><ServerCrash className="h-4 w-4" /><AlertTitle>Failed to load messages</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+          {error && <Alert variant="destructive" className="m-4"><ServerCrash className="h-4 w-4" /><AlertTitle>Gagal memuat pesan</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
           {!isLoading && !error && messages.map(msg => (
             <MessageBubble key={msg.id} message={msg} />
           ))}
         </div>
       </ScrollArea>
       <div className="border-t p-3 bg-muted/50 text-center">
-        <p className="text-xs text-muted-foreground">This is a read-only view. Replying is not available.</p>
+        <p className="text-xs text-muted-foreground">Ini adalah tampilan baca-saja. Membalas tidak tersedia.</p>
       </div>
     </div>
   );
@@ -221,7 +221,7 @@ export default function ChatPage() {
       }
       
       if (!selectedSalesUser.wahaSessionName) {
-        setChatsError(`User '${selectedSalesUser.name}' does not have a WAHA session name configured.`);
+        setChatsError(`Pengguna '${selectedSalesUser.name}' tidak memiliki nama sesi WAHA yang dikonfigurasi.`);
         return; // No session name, show an error and stop.
       }
 
@@ -236,11 +236,11 @@ export default function ChatPage() {
         } else {
           let errorMessage;
           if (result.status === 404) {
-             errorMessage = `Session '${selectedSalesUser.wahaSessionName}' not found in WAHA. Please check the session name in User Management.`;
+             errorMessage = `Sesi '${selectedSalesUser.wahaSessionName}' tidak ditemukan atau belum siap di WAHA. Pastikan nama sesi sudah benar dan sesi telah terhubung sepenuhnya.`;
           } else if (result.data && (result.data.message || result.data.error)) {
              errorMessage = `WAHA Error: ${result.data.message || result.data.error}`;
           } else {
-             errorMessage = result.hint || 'An unknown error occurred while fetching chats.';
+             errorMessage = result.hint || 'Terjadi kesalahan tidak dikenal saat mengambil obrolan.';
           }
           throw new Error(errorMessage);
         }
@@ -273,7 +273,7 @@ export default function ChatPage() {
           if (result.data && (result.data.message || result.data.error)) {
              errorMessage = `WAHA Error: ${result.data.message || result.data.error}`;
           } else {
-             errorMessage = result.hint || 'An unknown error occurred while fetching messages.';
+             errorMessage = result.hint || 'Terjadi kesalahan tidak dikenal saat mengambil pesan.';
           }
           throw new Error(errorMessage);
         }
