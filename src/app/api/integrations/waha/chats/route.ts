@@ -1,9 +1,11 @@
-import { wahaRequest } from '@/lib/wahaClient';
+'use client';
+
+import { wahaRequest, type WahaApiResponse } from '@/lib/wahaClient';
 import { NextResponse } from 'next/server';
 
 /**
  * Endpoint to fetch the list of chats for a specific WAHA session.
- * Requires 'sessionName' as a query parameter.
+ * It resiliently tries multiple common API paths to support different WAHA forks.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -16,14 +18,31 @@ export async function GET(request: Request) {
     );
   }
 
-  // WAHA API endpoint to get chats for a session.
-  // This might vary depending on the WAHA fork, but `/api/sessions/${sessionName}/chats` is a common pattern.
-  const response = await wahaRequest({
-    path: `/api/sessions/${sessionName}/chats`,
-    hint: `Failed to fetch chats for session '${sessionName}'.`,
-  });
+  // Define a list of possible endpoint paths to try.
+  const possiblePaths = [
+    `/api/chats/${sessionName}`, // Common in some forks
+    `/api/sessions/${sessionName}/chats`, // Common in others
+  ];
 
-  const httpStatus = response.status === 500 ? 500 : 200;
+  let lastResponse: WahaApiResponse | null = null;
 
-  return NextResponse.json(response, { status: httpStatus });
+  // Iterate through the possible paths and stop at the first successful one.
+  for (const path of possiblePaths) {
+    const response = await wahaRequest({
+      path: path,
+      hint: `Failed attempt at ${path}.`,
+    });
+
+    lastResponse = response;
+
+    // If the request was successful (2xx status), we found the right endpoint.
+    if (response.ok) {
+      return NextResponse.json(response, { status: 200 });
+    }
+  }
+
+  // If the loop completes, it means all attempts failed.
+  // Return the last response we received, which contains the final error.
+  const httpStatus = lastResponse?.status === 500 ? 500 : 200;
+  return NextResponse.json(lastResponse, { status: httpStatus });
 }
