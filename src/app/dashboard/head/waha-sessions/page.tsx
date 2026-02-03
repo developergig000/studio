@@ -255,13 +255,20 @@ export default function WahaSessionsPage() {
   // Effect 3: Sync live phone numbers back to Firestore
   React.useEffect(() => {
     displayUsers.forEach(user => {
-      const hasLiveNumber = !!user.liveWahaPhoneNumber;
+      // `liveNumber` is the fresh data from the WAHA API call. It's either a string or null.
+      const liveNumber = user.liveWahaPhoneNumber;
+      // `storedNumber` is the data currently in Firestore. It can be a string or null/undefined.
+      const storedNumber = user.wahaPhoneNumber;
 
-      // Only sync from WAHA to Firestore if a session is truly connected and provides a number.
-      // This prevents overwriting manually entered data.
-      if (hasLiveNumber && user.liveWahaPhoneNumber !== user.wahaPhoneNumber) {
+      // THE CRITICAL LOGIC:
+      // Only update Firestore IF...
+      // 1. We have a valid, non-empty `liveNumber` from WAHA.
+      // 2. The `liveNumber` is different from what's already stored.
+      // This prevents a `null` or empty `liveNumber` (from a disconnected session)
+      // from overwriting a valid number that was entered manually.
+      if (liveNumber && liveNumber !== storedNumber) {
         const userRef = doc(db, 'users', user.uid);
-        updateDoc(userRef, { wahaPhoneNumber: user.liveWahaPhoneNumber });
+        updateDoc(userRef, { wahaPhoneNumber: liveNumber });
       }
     });
   }, [displayUsers]);
