@@ -4,14 +4,13 @@ import * as React from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod';
-import { Loader2, Pencil, Check, X } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Loader2, Pencil, Check, X, PlusCircle } from 'lucide-react';
+import Link from 'next/link';
 import { format } from 'date-fns';
-import { collection, doc, getDocs, serverTimestamp, setDoc, Timestamp, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { collection, doc, getDocs, Timestamp, updateDoc } from 'firebase/firestore';
 
-import { auth, db } from '@/lib/firebase/client';
-import type { User, UserGroup, UserRole } from '@/lib/types';
+import { db } from '@/lib/firebase/client';
+import type { User } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,14 +20,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-
-const addFormSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
-  email: z.string().email({ message: 'Please enter a valid email address.' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
-  role: z.enum(['SALES', 'HEAD_SALES']),
-  group: z.enum(['Yogyakarta', 'Pekanbaru']),
-});
 
 const editFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -40,24 +31,11 @@ const editFormSchema = z.object({
 
 export default function UserManagementPage() {
   const { toast } = useToast();
-  const router = useRouter();
   const [users, setUsers] = React.useState<User[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [isEditSubmitting, setIsEditSubmitting] = React.useState(false);
   const [editingUserId, setEditingUserId] = React.useState<string | null>(null);
 
-  const addForm = useForm<z.infer<typeof addFormSchema>>({
-    resolver: zodResolver(addFormSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      password: '',
-      role: 'SALES',
-      group: 'Yogyakarta',
-    },
-  });
-  
   const editForm = useForm<z.infer<typeof editFormSchema>>({
     resolver: zodResolver(editFormSchema),
   });
@@ -95,42 +73,6 @@ export default function UserManagementPage() {
   React.useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-
-  async function onAddSubmit(values: z.infer<typeof addFormSchema>) {
-    setIsSubmitting(true);
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
-      const newUser = userCredential.user;
-
-      await setDoc(doc(db, 'users', newUser.uid), {
-        id: newUser.uid,
-        name: values.name,
-        email: values.email,
-        role: values.role as UserRole,
-        group: values.group as UserGroup,
-        createdAt: serverTimestamp(),
-      });
-
-      await signOut(auth);
-      
-      toast({
-        title: 'User Created Successfully',
-        description: 'You have been signed out. Please log in again to continue.',
-      });
-
-      router.push('/login');
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Failed to create user',
-        description: error.code === 'auth/email-already-in-use' 
-          ? 'This email address is already in use by another account.'
-          : error.message || 'An unknown error occurred.',
-      });
-      setIsSubmitting(false);
-    }
-  }
 
   const handleEditClick = (user: User) => {
     setEditingUserId(user.uid);
@@ -172,245 +114,151 @@ export default function UserManagementPage() {
 
 
   return (
-    <div className="grid gap-8 lg:grid-cols-3">
-      <div className="lg:col-span-1">
-        <Card>
-          <CardHeader>
-            <CardTitle>Add New User</CardTitle>
-            <CardDescription>Create a new user account and assign a role and group.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...addForm}>
-              <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-6">
-                <FormField
-                  control={addForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="John Doe" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email Address</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="user@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="Min. 8 characters" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Role</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a role" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="SALES">SALES</SelectItem>
-                          <SelectItem value="HEAD_SALES">HEAD_SALES</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={addForm.control}
-                  name="group"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Group</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a group" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Yogyakarta">Yogyakarta</SelectItem>
-                          <SelectItem value="Pekanbaru">Pekanbaru</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Create User
-                </Button>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="lg:col-span-2">
-        <Card>
-          <CardHeader>
+    <div className="space-y-8">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
             <CardTitle>Existing Users</CardTitle>
             <CardDescription>A list of all users in the system. Click the pencil to edit a row.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Group</TableHead>
-                  <TableHead>WAHA Session</TableHead>
-                  <TableHead>WAHA Phone</TableHead>
-                  <TableHead>Joined</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {isLoading ? (
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                      <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : users.length > 0 ? (
-                  users.map((user) => {
-                    const isEditing = editingUserId === user.uid;
-                    return isEditing ? (
-                      <Form {...editForm} key={user.uid}>
-                        <TableRow className="bg-muted/50">
-                          <TableCell>
-                            <FormField control={editForm.control} name="name" render={({ field }) => (
-                              <Input {...field} className="h-8 text-xs" />
-                            )} />
-                          </TableCell>
-                          <TableCell>{user.email}</TableCell>
-                          <TableCell>
-                            <FormField control={editForm.control} name="role" render={({ field }) => (
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="SALES">SALES</SelectItem>
-                                  <SelectItem value="HEAD_SALES">HEAD_SALES</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            )} />
-                          </TableCell>
-                          <TableCell>
-                             <FormField control={editForm.control} name="group" render={({ field }) => (
-                              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                <FormControl>
-                                  <SelectTrigger className="h-8 text-xs">
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="Yogyakarta">Yogyakarta</SelectItem>
-                                  <SelectItem value="Pekanbaru">Pekanbaru</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            )} />
-                          </TableCell>
-                          <TableCell>
-                             <FormField control={editForm.control} name="wahaSessionName" render={({ field }) => (
-                                <Input {...field} value={field.value ?? ''} className="h-8 text-xs" />
-                              )} />
-                          </TableCell>
-                          <TableCell>
-                             <FormField control={editForm.control} name="wahaPhoneNumber" render={({ field }) => (
-                                <Input {...field} value={field.value ?? ''} className="h-8 text-xs" />
-                              )} />
-                          </TableCell>
-                          <TableCell>
-                            {user.createdAt ? format((user.createdAt as Timestamp).toDate(), 'PP') : 'N/A'}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex justify-end items-center gap-1">
-                                <Button variant="ghost" size="icon" onClick={editForm.handleSubmit(onEditSubmit)} disabled={isEditSubmitting}>
-                                    {isEditSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 text-green-600" />}
-                                </Button>
-                                <Button variant="ghost" size="icon" onClick={handleCancelClick} disabled={isEditSubmitting}>
-                                    <X className="h-4 w-4 text-red-600" />
-                                </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      </Form>
-                    ) : (
-                      <TableRow key={user.uid}>
-                        <TableCell className="font-medium">{user.name}</TableCell>
+          </div>
+          <Button asChild>
+            <Link href="/dashboard/head/user-management/new">
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add New User
+            </Link>
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Group</TableHead>
+                <TableHead>WAHA Session</TableHead>
+                <TableHead>WAHA Phone</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 ml-auto" /></TableCell>
+                  </TableRow>
+                ))
+              ) : users.length > 0 ? (
+                users.map((user) => {
+                  const isEditing = editingUserId === user.uid;
+                  return isEditing ? (
+                    <Form {...editForm} key={user.uid}>
+                      <TableRow className="bg-muted/50">
+                        <TableCell>
+                          <FormField control={editForm.control} name="name" render={({ field }) => (
+                            <Input {...field} className="h-8 text-xs" />
+                          )} />
+                        </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          <Badge variant={user.role === 'HEAD_SALES' ? 'default' : 'outline'}>
-                            {user.role}
-                          </Badge>
+                          <FormField control={editForm.control} name="role" render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="SALES">SALES</SelectItem>
+                                <SelectItem value="HEAD_SALES">HEAD_SALES</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )} />
                         </TableCell>
                         <TableCell>
-                          {user.group ? <Badge variant="secondary">{user.group}</Badge> : 'N/A'}
+                           <FormField control={editForm.control} name="group" render={({ field }) => (
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="Yogyakarta">Yogyakarta</SelectItem>
+                                <SelectItem value="Pekanbaru">Pekanbaru</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )} />
                         </TableCell>
-                        <TableCell>{user.wahaSessionName || 'N/A'}</TableCell>
-                        <TableCell>{user.wahaPhoneNumber || 'N/A'}</TableCell>
+                        <TableCell>
+                           <FormField control={editForm.control} name="wahaSessionName" render={({ field }) => (
+                              <Input {...field} value={field.value ?? ''} className="h-8 text-xs" />
+                            )} />
+                        </TableCell>
+                        <TableCell>
+                           <FormField control={editForm.control} name="wahaPhoneNumber" render={({ field }) => (
+                              <Input {...field} value={field.value ?? ''} className="h-8 text-xs" />
+                            )} />
+                        </TableCell>
                         <TableCell>
                           {user.createdAt ? format((user.createdAt as Timestamp).toDate(), 'PP') : 'N/A'}
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                        <TableCell>
+                          <div className="flex justify-end items-center gap-1">
+                              <Button variant="ghost" size="icon" onClick={editForm.handleSubmit(onEditSubmit)} disabled={isEditSubmitting}>
+                                  {isEditSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4 text-green-600" />}
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={handleCancelClick} disabled={isEditSubmitting}>
+                                  <X className="h-4 w-4 text-red-600" />
+                              </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
-                    );
-                  })
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center">
-                      No users found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+                    </Form>
+                  ) : (
+                    <TableRow key={user.uid}>
+                      <TableCell className="font-medium">{user.name}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>
+                        <Badge variant={user.role === 'HEAD_SALES' ? 'default' : 'outline'}>
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        {user.group ? <Badge variant="secondary">{user.group}</Badge> : 'N/A'}
+                      </TableCell>
+                      <TableCell>{user.wahaSessionName || 'N/A'}</TableCell>
+                      <TableCell>{user.wahaPhoneNumber || 'N/A'}</TableCell>
+                      <TableCell>
+                        {user.createdAt ? format((user.createdAt as Timestamp).toDate(), 'PP') : 'N/A'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="icon" onClick={() => handleEditClick(user)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center">
+                    No users found.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 }

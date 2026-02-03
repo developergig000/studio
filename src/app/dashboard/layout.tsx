@@ -68,6 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const getPageTitle = () => {
     if (pathname === '/dashboard/head') return 'My Dashboard';
     if (pathname === '/dashboard/head/user-management') return 'User Management';
+    if (pathname === '/dashboard/head/user-management/new') return 'Add New User';
     if (pathname === '/dashboard/head/waha-sessions') return 'WAHA Session Management';
     if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
     if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
@@ -97,7 +98,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild isActive={pathname === '/dashboard/head/user-management'}>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/head/user-management')}>
                                 <Link href="/dashboard/head/user-management"><Users />User Management</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
