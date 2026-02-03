@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare, QrCode, Plug } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare, Plug } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -68,11 +68,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const getPageTitle = () => {
     if (pathname === '/dashboard/head') return 'My Dashboard';
     if (pathname === '/dashboard/head/user-management') return 'User Management';
-    if (pathname.startsWith('/dashboard/sales/waha')) return 'Sesi WhatsApp';
     if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
     if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
     if (pathname.startsWith('/dashboard/chat')) return 'Obrolan';
-    if (pathname.startsWith('/dashboard/integration')) return 'Integrasi';
+    if (pathname.startsWith('/dashboard/integrations')) return 'Integrasi';
     return user.role === 'HEAD_SALES' ? 'My Dashboard' : 'My Profile';
   };
   
@@ -107,13 +106,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>
-                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales/waha')}>
-                                <Link href="/dashboard/sales/waha"><QrCode />Sesi WhatsApp</Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/integration')}>
-                                <Link href="/dashboard/integration"><Plug />Integrasi</Link>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/integrations')}>
+                                <Link href="/dashboard/integrations"><Plug />Integrasi</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                     </>
@@ -130,14 +124,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                                 <Link href="/dashboard/chat"><MessageSquare />Obrolan</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
-                        <SidebarMenuItem>
-                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/sales/waha')}>
-                                <Link href="/dashboard/sales/waha"><QrCode />Sesi WhatsApp</Link>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
                          <SidebarMenuItem>
-                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/integration')}>
-                                <Link href="/dashboard/integration"><Plug />Integrasi</Link>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/integrations')}>
+                                <Link href="/dashboard/integrations"><Plug />Integrasi</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                      </>
