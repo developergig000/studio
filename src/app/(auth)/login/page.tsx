@@ -106,12 +106,6 @@ export default function LoginPage() {
             </Button>
           </form>
         </Form>
-        <div className="mt-4 text-center text-sm">
-          Need to seed the database for development?{' '}
-          <Link href="/seed" className="underline">
-            Seed Users
-          </Link>
-        </div>
       </CardContent>
     </Card>
   );
