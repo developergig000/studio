@@ -3,29 +3,35 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import type { User, WahaChat, WahaMessage } from '@/lib/types';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones, Search } from 'lucide-react';
+import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones, Search, Pencil, Check, X } from 'lucide-react';
 import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 // Helper function to get user initials
 function getInitials(name?: string | null) {
   if (!name) return 'WA';
+  // Check if the name is just a number (like a phone number)
+  if (!isNaN(Number(name))) {
+    return name.substring(name.length - 2);
+  }
   const parts = name.split(' ');
   if (parts.length > 1) {
-    return parts[0][0] + parts[parts.length - 1][0];
+    return (parts[0][0] + (parts[parts.length - 1][0] || '')).toUpperCase();
   }
-  return name.substring(0, 2);
+  return name.substring(0, 2).toUpperCase();
 }
+
 
 // ChatList component (Left Panel)
 function ChatList({
@@ -39,6 +45,7 @@ function ChatList({
   loadingMessage,
   searchTerm,
   onSearchChange,
+  selectedChatId,
 }: {
   salesUsers: User[];
   onSelectSalesUser: (userId: string) => void;
@@ -50,6 +57,7 @@ function ChatList({
   loadingMessage: string | null;
   searchTerm: string;
   onSearchChange: (value: string) => void;
+  selectedChatId: string | null;
 }) {
   const groupedUsers = React.useMemo(() => {
     if (!salesUsers) return {};
@@ -131,7 +139,10 @@ function ChatList({
             <button
               key={chat.id}
               onClick={() => onSelectChat(chat.id)}
-              className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
+              className={cn(
+                "flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted",
+                chat.id === selectedChatId && "bg-muted"
+              )}
             >
               <Avatar className="h-10 w-10 border">
                 <AvatarImage src={chat.profilePicUrl} />
@@ -178,7 +189,7 @@ function MessageBubble({ message }: { message: WahaMessage }) {
                 icon = <FileText className="h-5 w-5 mr-2 flex-shrink-0" />;
                 if (!mediaText) mediaText = 'File';
                 // Handle <file:...> case
-                if (message.body.startsWith('<file:')) {
+                if (message.body && message.body.startsWith('<file:')) {
                     mediaText = message.body.substring(6, message.body.length - 1);
                 }
                 break;
@@ -192,7 +203,7 @@ function MessageBubble({ message }: { message: WahaMessage }) {
                     {icon}
                     <span className="flex-1 break-all text-sm font-medium">{mediaText}</span>
                 </div>
-                {caption && <p className="text-sm">{caption}</p>}
+                {caption && <p className="text-sm whitespace-pre-wrap break-words">{caption}</p>}
             </div>
         );
     };
@@ -225,6 +236,7 @@ function ChatWindow({
   error,
   searchTerm,
   onSearchChange,
+  onSaveName,
 }: {
   chat: WahaChat | null;
   messages: WahaMessage[];
@@ -232,14 +244,23 @@ function ChatWindow({
   error: string | null;
   searchTerm: string;
   onSearchChange: (value: string) => void;
+  onSaveName: (chatId: string, newName: string) => Promise<void>;
 }) {
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+  const [isEditingName, setIsEditingName] = React.useState(false);
+  const [editedName, setEditedName] = React.useState('');
 
   React.useEffect(() => {
     if (!isLoading && !searchTerm) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isLoading, searchTerm]);
+
+  // Reset editing state when chat changes
+  React.useEffect(() => {
+    setIsEditingName(false);
+  }, [chat]);
+
 
   if (!chat) {
     return (
@@ -252,6 +273,20 @@ function ChatWindow({
       </div>
     );
   }
+  
+  const handleEditClick = () => {
+    setEditedName(chat.name || '');
+    setIsEditingName(true);
+  };
+  
+  const handleSave = async () => {
+    await onSaveName(chat.id, editedName);
+    setIsEditingName(false);
+  };
+  
+  const handleCancel = () => {
+    setIsEditingName(false);
+  };
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -261,7 +296,30 @@ function ChatWindow({
           <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
-          <p className="font-semibold">{chat.name}</p>
+          {isEditingName ? (
+             <div className="flex items-center gap-2">
+              <Input
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                className="h-8"
+                onKeyDown={(e) => e.key === 'Enter' && handleSave()}
+                autoFocus
+              />
+              <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={handleSave}>
+                <Check className="h-4 w-4" />
+              </Button>
+              <Button size="icon" variant="ghost" className="h-8 w-8 flex-shrink-0" onClick={handleCancel}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <p className="font-semibold">{chat.name}</p>
+              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleEditClick}>
+                <Pencil className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
           <p className="text-sm text-muted-foreground">{chat.isGroup ? 'Group Chat' : 'Direct Message'}</p>
         </div>
         <div className="relative">
@@ -299,10 +357,14 @@ function ChatWindow({
 // Main Page Component
 export default function ChatPage() {
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
   
   const [salesUsers, setSalesUsers] = React.useState<User[]>([]);
   const [selectedSalesUser, setSelectedSalesUser] = React.useState<User | null>(null);
+  
   const [wahaChats, setWahaChats] = React.useState<WahaChat[]>([]);
+  const [contactAliases, setContactAliases] = React.useState<Record<string, string>>({});
+  
   const [chatsLoading, setChatsLoading] = React.useState(false);
   const [chatsError, setChatsError] = React.useState<string | null>(null);
   const [loadingMessage, setLoadingMessage] = React.useState<string | null>(null);
@@ -313,9 +375,7 @@ export default function ChatPage() {
   const [messagesError, setMessagesError] = React.useState<string | null>(null);
 
   const [messageSearchTerm, setMessageSearchTerm] = React.useState('');
-  const [filteredMessages, setFilteredMessages] = React.useState<WahaMessage[]>([]);
   const [chatSearchTerm, setChatSearchTerm] = React.useState('');
-  const [filteredChats, setFilteredChats] = React.useState<WahaChat[]>([]);
 
   React.useEffect(() => {
     async function fetchSalesUsers() {
@@ -327,6 +387,30 @@ export default function ChatPage() {
     }
     fetchSalesUsers();
   }, [user]);
+
+  // Fetch contact aliases when a sales user is selected
+  React.useEffect(() => {
+    async function fetchAliases() {
+      if (!selectedSalesUser) {
+        setContactAliases({});
+        return;
+      }
+      try {
+        const aliasesCol = collection(db, 'users', selectedSalesUser.uid, 'waha_contacts');
+        const snapshot = await getDocs(aliasesCol);
+        const aliases: Record<string, string> = {};
+        snapshot.forEach(doc => {
+          aliases[doc.id] = doc.data().customName;
+        });
+        setContactAliases(aliases);
+      } catch (error) {
+        console.error("Failed to fetch contact aliases:", error);
+        // Do not show a toast for this, as it's a background operation
+      }
+    }
+    fetchAliases();
+  }, [selectedSalesUser]);
+
 
   React.useEffect(() => {
     const abortController = new AbortController();
@@ -439,30 +523,33 @@ export default function ChatPage() {
     fetchWahaMessages();
   }, [selectedChat, selectedSalesUser]);
 
-  React.useEffect(() => {
-    if (!messageSearchTerm) {
-      setFilteredMessages(wahaMessages);
-    } else {
-      const lowercasedQuery = messageSearchTerm.toLowerCase();
-      const filtered = wahaMessages.filter(message =>
-        message.body?.toLowerCase().includes(lowercasedQuery)
-      );
-      setFilteredMessages(filtered);
-    }
-  }, [messageSearchTerm, wahaMessages]);
+  // Derived state for chats with aliases and filtering
+  const mergedWahaChats = React.useMemo(() => {
+    return wahaChats.map(chat => ({
+        ...chat,
+        name: contactAliases[chat.id] || chat.name,
+    }));
+  }, [wahaChats, contactAliases]);
 
-  React.useEffect(() => {
+  const filteredChats = React.useMemo(() => {
     if (!chatSearchTerm) {
-      setFilteredChats(wahaChats);
-    } else {
-      const lowercasedQuery = chatSearchTerm.toLowerCase();
-      const filtered = wahaChats.filter(chat =>
-        chat.name?.toLowerCase().includes(lowercasedQuery)
-      );
-      setFilteredChats(filtered);
+      return mergedWahaChats;
     }
-  }, [chatSearchTerm, wahaChats]);
+    const lowercasedQuery = chatSearchTerm.toLowerCase();
+    return mergedWahaChats.filter(chat =>
+      chat.name?.toLowerCase().includes(lowercasedQuery)
+    );
+  }, [chatSearchTerm, mergedWahaChats]);
 
+  const filteredMessages = React.useMemo(() => {
+    if (!messageSearchTerm) {
+      return wahaMessages;
+    }
+    const lowercasedQuery = messageSearchTerm.toLowerCase();
+    return wahaMessages.filter(message =>
+      message.body?.toLowerCase().includes(lowercasedQuery)
+    );
+  }, [messageSearchTerm, wahaMessages]);
 
   const handleSelectSalesUser = (userId: string) => {
     const user = salesUsers.find(u => u.uid === userId) || null;
@@ -470,10 +557,32 @@ export default function ChatPage() {
   };
 
   const handleSelectChat = (chatId: string) => {
-    const chat = wahaChats.find(c => c.id === chatId) || null;
+    const chat = mergedWahaChats.find(c => c.id === chatId) || null;
     setSelectedChat(chat);
     setMessageSearchTerm('');
-  }
+  };
+  
+  const handleSaveName = async (chatId: string, newName: string) => {
+    if (!selectedSalesUser || !newName.trim()) return;
+    try {
+        const aliasRef = doc(db, 'users', selectedSalesUser.uid, 'waha_contacts', chatId);
+        await setDoc(aliasRef, { customName: newName.trim() });
+
+        // Optimistic update
+        const newAliases = { ...contactAliases, [chatId]: newName.trim() };
+        setContactAliases(newAliases);
+        
+        // Update selected chat if it's the one being edited
+        if (selectedChat?.id === chatId) {
+            setSelectedChat(prev => prev ? { ...prev, name: newName.trim() } : null);
+        }
+
+        toast({ title: "Nama kontak diperbarui" });
+    } catch (error: any) {
+        console.error("Failed to save contact name:", error);
+        toast({ variant: 'destructive', title: 'Gagal menyimpan', description: error.message });
+    }
+  };
 
   if (authLoading) {
     return (
@@ -499,6 +608,7 @@ export default function ChatPage() {
               loadingMessage={loadingMessage}
               searchTerm={chatSearchTerm}
               onSearchChange={setChatSearchTerm}
+              selectedChatId={selectedChat?.id || null}
             />
           </div>
           <div className="h-full overflow-hidden">
@@ -509,6 +619,7 @@ export default function ChatPage() {
               error={messagesError}
               searchTerm={messageSearchTerm}
               onSearchChange={setMessageSearchTerm}
+              onSaveName={handleSaveName}
             />
           </div>
         </div>

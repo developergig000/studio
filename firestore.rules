@@ -122,6 +122,15 @@ service cloud.firestore {
 
       // WRITE: A user can only delete their own existing profile.
       allow delete: if isExistingOwner(userId);
+      
+      /**
+       * @description Manages custom name aliases for WAHA contacts.
+       * @path /users/{userId}/waha_contacts/{contactId}
+       * @allow (read, write) Only 'HEAD_SALES' can manage contact aliases for any user.
+       */
+      match /waha_contacts/{contactId} {
+        allow read, write: if isHeadSales();
+      }
     }
   }
 }

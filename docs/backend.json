@@ -66,6 +66,20 @@
         "role",
         "createdAt"
       ]
+    },
+    "WahaContactAlias": {
+      "title": "WAHA Contact Alias",
+      "type": "object",
+      "description": "A custom name alias for a WAHA chat contact, set by a manager.",
+      "properties": {
+        "customName": {
+          "type": "string",
+          "description": "The user-defined name for the contact."
+        }
+      },
+      "required": [
+        "customName"
+      ]
     }
   },
   "auth": {
@@ -88,6 +102,26 @@
             {
               "name": "userId",
               "description": "The unique identifier for the user, corresponding to the Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/waha_contacts/{contactId}",
+        "definition": {
+          "entityName": "WahaContactAlias",
+          "schema": {
+            "$ref": "#/backend/entities/WahaContactAlias"
+          },
+          "description": "Stores custom names for WAHA contacts for easier identification by managers.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The UID of the sales user."
+            },
+            {
+              "name": "contactId",
+              "description": "The WAHA chat ID (e.g., 62812345678@c.us)."
             }
           ]
         }
