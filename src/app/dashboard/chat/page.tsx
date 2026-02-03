@@ -34,6 +34,7 @@ function ChatList({
   onSelectChat,
   isLoading,
   error,
+  loadingMessage,
 }: {
   salesUsers: User[];
   onSelectSalesUser: (userId: string) => void;
@@ -42,12 +43,13 @@ function ChatList({
   onSelectChat: (chatId: string) => void;
   isLoading: boolean;
   error: string | null;
+  loadingMessage: string | null;
 }) {
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col gap-y-1">
         <div className="p-2 border-b">
-          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Monitor Sales User</h3>
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Pantau Pengguna Sales</h3>
           <Select onValueChange={onSelectSalesUser} value={selectedSalesUser?.uid || ''}>
             <SelectTrigger>
               <SelectValue placeholder="Pilih anggota Sales" />
@@ -63,8 +65,13 @@ function ChatList({
         </div>
 
         <div className="p-2">
-          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">WhatsApp Chats</h3>
-          {isLoading && <div className="flex justify-center p-4"><Loader2 className="animate-spin" /></div>}
+          <h3 className="mb-2 text-sm font-semibold text-muted-foreground px-2">Obrolan WhatsApp</h3>
+          {isLoading && (
+            <div className="flex flex-col items-center justify-center p-4 text-center">
+              <Loader2 className="animate-spin" />
+              {loadingMessage && <p className="mt-2 text-sm text-muted-foreground">{loadingMessage}</p>}
+            </div>
+          )}
           {error && <Alert variant="destructive" className="m-2"><AlertDescription>{error}</AlertDescription></Alert>}
           {!isLoading && !error && chats.length === 0 && selectedSalesUser && (
             <p className="p-4 text-sm text-center text-muted-foreground">Tidak ada obrolan WhatsApp yang ditemukan untuk pengguna ini.</p>
@@ -187,6 +194,7 @@ export default function ChatPage() {
   const [wahaChats, setWahaChats] = React.useState<WahaChat[]>([]);
   const [chatsLoading, setChatsLoading] = React.useState(false);
   const [chatsError, setChatsError] = React.useState<string | null>(null);
+  const [loadingMessage, setLoadingMessage] = React.useState<string | null>(null);
 
   // State for right panel
   const [selectedChat, setSelectedChat] = React.useState<WahaChat | null>(null);
@@ -207,50 +215,78 @@ export default function ChatPage() {
     fetchSalesUsers();
   }, [user]);
 
-  // Effect to fetch WAHA chats when a sales user is selected
+  // Effect to fetch WAHA chats when a sales user is selected, with retry logic
   React.useEffect(() => {
-    async function fetchWahaChats() {
+    const abortController = new AbortController();
+
+    async function fetchWahaChatsWithRetry() {
       // Clear all dependent state when the selected user changes
       setWahaChats([]);
       setSelectedChat(null);
       setWahaMessages([]);
       setChatsError(null);
 
-      if (!selectedSalesUser) {
-        return; // Nothing selected, do nothing.
+      if (!selectedSalesUser?.wahaSessionName) {
+        if (selectedSalesUser) {
+           setChatsError(`Pengguna '${selectedSalesUser.name}' tidak memiliki nama sesi WAHA yang dikonfigurasi.`);
+        }
+        return;
       }
       
-      if (!selectedSalesUser.wahaSessionName) {
-        setChatsError(`Pengguna '${selectedSalesUser.name}' tidak memiliki nama sesi WAHA yang dikonfigurasi.`);
-        return; // No session name, show an error and stop.
-      }
+      const sessionName = selectedSalesUser.wahaSessionName;
 
       setChatsLoading(true);
-      try {
-        const response = await fetch(`/api/integrations/waha/chats?sessionName=${selectedSalesUser.wahaSessionName}`);
-        const result: WahaApiResponse = await response.json();
+      setLoadingMessage(`Mencoba terhubung ke sesi '${sessionName}'...`);
 
-        if (result.ok && Array.isArray(result.data)) {
-          const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
-          setWahaChats(sortedChats);
-        } else {
-          let errorMessage;
-          if (result.status === 404) {
-             errorMessage = `Sesi '${selectedSalesUser.wahaSessionName}' tidak ditemukan atau belum siap di WAHA. Pastikan nama sesi sudah benar dan sesi telah terhubung sepenuhnya.`;
-          } else if (result.data && (result.data.message || result.data.error)) {
-             errorMessage = `WAHA Error: ${result.data.message || result.data.error}`;
-          } else {
-             errorMessage = result.hint || 'Terjadi kesalahan tidak dikenal saat mengambil obrolan.';
+      const MAX_RETRIES = 5;
+      const RETRY_DELAY = 4000; // 4 seconds
+
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        if (abortController.signal.aborted) return;
+
+        try {
+          const response = await fetch(`/api/integrations/waha/chats?sessionName=${sessionName}`, { signal: abortController.signal });
+          const result: WahaApiResponse = await response.json();
+
+          if (result.ok && Array.isArray(result.data)) {
+            // SUCCESS
+            const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
+            setWahaChats(sortedChats);
+            setChatsError(null);
+            setLoadingMessage(null);
+            setChatsLoading(false);
+            return; // Exit the loop on success
           }
-          throw new Error(errorMessage);
+
+          if (result.status === 404) {
+            if (attempt === MAX_RETRIES) {
+              throw new Error(`Sesi '${sessionName}' tidak merespon setelah beberapa kali percobaan. Pastikan sesi berjalan dengan benar di layanan WAHA.`);
+            }
+            setLoadingMessage(`Sesi ditemukan, menunggu sinkronisasi obrolan... (Percobaan ${attempt}/${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          } else {
+            // Handle other non-retryable API errors from WAHA
+            const errorMessage = result.data?.message || result.data?.error || result.hint || 'Terjadi kesalahan tidak dikenal dari WAHA.';
+            throw new Error(`WAHA Error: ${errorMessage}`);
+          }
+        } catch (err: any) {
+           if (err.name === 'AbortError') {
+             console.log('Fetch for chats aborted.');
+             return;
+           }
+           setChatsError(err.message);
+           setChatsLoading(false);
+           setLoadingMessage(null);
+           return; // Exit on hard error
         }
-      } catch (err: any) {
-        setChatsError(err.message);
-      } finally {
-        setChatsLoading(false);
       }
     }
-    fetchWahaChats();
+    
+    fetchWahaChatsWithRetry();
+
+    return () => {
+      abortController.abort();
+    };
   }, [selectedSalesUser]);
 
   // Effect to fetch messages when a chat is selected
@@ -318,6 +354,7 @@ export default function ChatPage() {
               onSelectChat={handleSelectChat}
               isLoading={chatsLoading}
               error={chatsError}
+              loadingMessage={loadingMessage}
             />
           </div>
           <div className="h-full">
