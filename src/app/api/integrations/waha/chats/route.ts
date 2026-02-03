@@ -28,8 +28,8 @@ function normalizeChats(responseData: any): WahaChat[] | null {
         // Map to our standard WahaChat format, providing fallbacks for missing fields
         return rawChats.map(chat => ({
             id: chat.id || '',
-            name: chat.name || chat.contact?.name || chat.id || 'Unknown',
-            profilePicUrl: chat.profilePicUrl || chat.picUrl || chat.avatar || chat.contact?.profilePicUrl || null, // Check inside contact object as well
+            name: chat.name || chat.contact?.name || chat.contact?.pushname || chat.id || 'Unknown',
+            profilePicUrl: chat.profilePicUrl || chat.picUrl || chat.avatar || chat.contact?.profilePicUrl || chat.contact?.avatar || null,
             isGroup: chat.isGroup || false,
             timestamp: chat.timestamp || 0,
             lastMessage: chat.lastMessage ? {
