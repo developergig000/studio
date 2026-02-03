@@ -37,7 +37,7 @@ function normalizeChats(responseData: any): WahaChat[] | null {
                        'Unknown';
 
             // Clean up name if it's a raw ID (like 12345@c.us or 12345@lid)
-            if (typeof name === 'string' && name.includes('@')) {
+            if (typeof name === 'string' && (name.endsWith('@c.us') || name.endsWith('@lid'))) {
                 name = name.split('@')[0];
             }
 

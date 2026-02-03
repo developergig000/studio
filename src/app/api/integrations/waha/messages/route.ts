@@ -29,7 +29,7 @@ function normalizeMessages(responseData: any): WahaMessage[] | null {
             const fileName = msg.filename || msg.fileName;
 
             return {
-                id: msg.id || msg._id || '', // Some forks use _id
+                id: msg.id?._serialized || msg.id || msg._id || '', // Handle object ID, string ID, and _id
                 body: body,
                 fromMe: msg.fromMe || msg.isFromMe || false,
                 timestamp: msg.timestamp || 0,
