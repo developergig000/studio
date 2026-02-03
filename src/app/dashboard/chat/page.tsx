@@ -10,9 +10,9 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Loader2, MessageCircle, ServerCrash, AlertTriangle } from 'lucide-react';
+import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones } from 'lucide-react';
 import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
@@ -106,18 +106,71 @@ function ChatList({
 
 // MessageBubble component
 function MessageBubble({ message }: { message: WahaMessage }) {
-  return (
-    <div className={cn('flex items-end gap-2', message.fromMe ? 'justify-end' : 'justify-start')}>
-      <div
-        className={cn(
-          'max-w-xs rounded-lg px-3 py-2 md:max-w-md',
-          message.fromMe ? 'bg-primary text-primary-foreground' : 'bg-muted'
-        )}
-      >
-        <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
-      </div>
-    </div>
-  );
+    const renderContent = () => {
+        if (!message.hasMedia) {
+            return <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>;
+        }
+
+        let icon;
+        let mediaText = message.fileName;
+
+        switch (message.mediaType) {
+            case 'image':
+                icon = <ImageIcon className="h-5 w-5 mr-2 flex-shrink-0" />;
+                if (!mediaText) mediaText = 'Image';
+                break;
+            case 'video':
+                icon = <Video className="h-5 w-5 mr-2 flex-shrink-0" />;
+                if (!mediaText) mediaText = 'Video';
+                break;
+            case 'ptt':
+            case 'audio':
+                icon = <Headphones className="h-5 w-5 mr-2 flex-shrink-0" />;
+                if (!mediaText) mediaText = 'Audio';
+                break;
+            case 'document':
+            default:
+                icon = <FileText className="h-5 w-5 mr-2 flex-shrink-0" />;
+                if (!mediaText) mediaText = 'File';
+                // Handle <file:...> case
+                if (message.body.startsWith('<file:')) {
+                    mediaText = message.body.substring(6, message.body.length - 1);
+                }
+                break;
+        }
+        
+        // The body is treated as a caption, but not if it's just the file placeholder
+        const caption = message.body && !message.body.startsWith('<file:') ? message.body : null;
+
+        return (
+            <div className="space-y-1.5">
+                <div className="flex items-center rounded-md bg-black/5 dark:bg-white/10 p-2">
+                    {icon}
+                    <span className="flex-1 break-all text-sm font-medium">{mediaText}</span>
+                </div>
+                {caption && <p className="text-sm">{caption}</p>}
+            </div>
+        );
+    };
+
+    return (
+        <div className={cn('flex items-end gap-2', message.fromMe ? 'justify-end' : 'justify-start')}>
+            <div className={cn(
+                'max-w-xs rounded-lg px-3 py-2 md:max-w-md',
+                message.fromMe ? 'bg-primary text-primary-foreground' : 'bg-muted'
+            )}>
+                {renderContent()}
+                {message.timestamp > 0 && (
+                    <p className={cn(
+                        "text-right text-xs mt-1",
+                        message.fromMe ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                    )}>
+                        {format(new Date(message.timestamp * 1000), 'HH:mm')}
+                    </p>
+                )}
+            </div>
+        </div>
+    );
 }
 
 // ChatWindow component (Right Panel)
@@ -136,7 +189,9 @@ function ChatWindow({
 
   // Auto-scroll to bottom
   React.useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isLoading) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages, isLoading]);
 
   if (!chat) {

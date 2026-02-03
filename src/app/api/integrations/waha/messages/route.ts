@@ -23,12 +23,22 @@ function normalizeMessages(responseData: any): WahaMessage[] | null {
 
     if (rawMessages.length > 0) {
         // Map to our standard WahaMessage format
-        return rawMessages.map(msg => ({
-            id: msg.id || msg._id || '', // Some forks use _id
-            body: msg.body || msg.text || '', // some use text
-            fromMe: msg.fromMe || msg.isFromMe || false,
-            timestamp: msg.timestamp || 0,
-        }));
+        return rawMessages.map(msg => {
+            const hasMedia = msg.hasMedia === true || !!msg.mediaUrl || ['image', 'document', 'video', 'ptt', 'audio'].includes(msg.type);
+            const body = msg.body || msg.text || '';
+            const fileName = msg.filename || msg.fileName;
+
+            return {
+                id: msg.id || msg._id || '', // Some forks use _id
+                body: body,
+                fromMe: msg.fromMe || msg.isFromMe || false,
+                timestamp: msg.timestamp || 0,
+                hasMedia: hasMedia,
+                mediaType: msg.type,
+                mediaUrl: msg.mediaUrl,
+                fileName: fileName,
+            };
+        });
     }
 
     return null;

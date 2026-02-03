@@ -38,4 +38,8 @@ export type WahaMessage = {
   body: string;
   fromMe: boolean;
   timestamp: number;
+  hasMedia: boolean;
+  mediaType?: string;
+  mediaUrl?: string;
+  fileName?: string;
 };
