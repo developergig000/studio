@@ -26,17 +26,33 @@ function normalizeChats(responseData: any): WahaChat[] | null {
 
     if (rawChats.length > 0) {
         // Map to our standard WahaChat format, providing fallbacks for missing fields
-        return rawChats.map(chat => ({
-            id: chat.id || '',
-            name: chat.name || chat.contact?.name || chat.contact?.pushname || chat.id || 'Unknown',
-            profilePicUrl: chat.profilePicUrl || chat.picUrl || chat.avatar || chat.contact?.profilePicUrl || chat.contact?.avatar || null,
-            isGroup: chat.isGroup || false,
-            timestamp: chat.timestamp || 0,
-            lastMessage: chat.lastMessage ? {
-                body: chat.lastMessage.body || '',
-                timestamp: chat.lastMessage.timestamp || 0,
-            } : null,
-        }));
+        return rawChats.map(chat => {
+            // Expanded name-finding logic
+            let name = chat.name ||
+                       chat.pushname || // Common property
+                       chat.formattedName || // Another common one
+                       chat.contact?.name ||
+                       chat.contact?.pushname ||
+                       (typeof chat.id === 'object' ? chat.id.user : chat.id) || // Use user part of ID object, or ID string
+                       'Unknown';
+
+            // Clean up name if it's a raw ID (like 12345@c.us or 12345@lid)
+            if (typeof name === 'string' && name.includes('@')) {
+                name = name.split('@')[0];
+            }
+
+            return {
+                id: chat.id?._serialized || chat.id || '', // Handle object or string ID for the ID field
+                name: name, // Use the cleaned-up name
+                profilePicUrl: chat.profilePicUrl || chat.picUrl || chat.avatar || chat.contact?.profilePicUrl || chat.contact?.avatar || null,
+                isGroup: chat.isGroup || false,
+                timestamp: chat.timestamp || 0,
+                lastMessage: chat.lastMessage ? {
+                    body: chat.lastMessage.body || '',
+                    timestamp: chat.lastMessage.timestamp || 0,
+                } : null,
+            }
+        });
     }
 
     return null;
