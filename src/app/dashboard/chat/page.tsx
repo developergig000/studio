@@ -248,9 +248,11 @@ export default function ChatPage() {
           const response = await fetch(`/api/integrations/waha/chats?sessionName=${sessionName}`, { signal: abortController.signal });
           const result: WahaApiResponse = await response.json();
 
-          if (result.ok && Array.isArray(result.data)) {
-            // SUCCESS
-            const sortedChats = result.data.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
+          if (result.ok) {
+            // SUCCESS: API call was successful, now handle the data.
+            const chatsData = Array.isArray(result.data) ? result.data : [];
+            const sortedChats = chatsData.sort((a: WahaChat, b: WahaChat) => (b.timestamp || 0) - (a.timestamp || 0));
+            
             setWahaChats(sortedChats);
             setChatsError(null);
             setLoadingMessage(null);
@@ -258,6 +260,7 @@ export default function ChatPage() {
             return; // Exit the loop on success
           }
 
+          // If result is not ok, handle retryable and non-retryable errors
           if (result.status === 404) {
             if (attempt === MAX_RETRIES) {
               throw new Error(`Sesi '${sessionName}' tidak merespon setelah beberapa kali percobaan. Pastikan sesi berjalan dengan benar di layanan WAHA.`);
@@ -266,8 +269,8 @@ export default function ChatPage() {
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           } else {
             // Handle other non-retryable API errors from WAHA
-            const errorMessage = result.data?.message || result.data?.error || result.hint || 'Terjadi kesalahan tidak dikenal dari WAHA.';
-            throw new Error(`WAHA Error: ${errorMessage}`);
+            const errorMessage = result.data?.message || result.data?.error || result.hint || `Gagal mengambil obrolan untuk sesi '${sessionName}'. Pastikan nama sesi sudah benar di Manajemen Pengguna dan sesi tersebut telah sepenuhnya terhubung dan siap di WAHA.`;
+            throw new Error(errorMessage);
           }
         } catch (err: any) {
            if (err.name === 'AbortError') {
