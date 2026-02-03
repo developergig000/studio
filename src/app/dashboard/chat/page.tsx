@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { User, WahaChat, WahaMessage } from '@/lib/types';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
@@ -84,6 +84,7 @@ function ChatList({
               className="flex w-full items-center gap-3 rounded-lg p-2 text-left transition-colors hover:bg-muted"
             >
               <Avatar className="h-10 w-10 border">
+                <AvatarImage src={chat.profilePicUrl} />
                 <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 truncate">
@@ -113,7 +114,7 @@ function MessageBubble({ message }: { message: WahaMessage }) {
           message.fromMe ? 'bg-primary text-primary-foreground' : 'bg-muted'
         )}
       >
-        <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+        <p className="text-sm whitespace-pre-wrap break-words">{message.body}</p>
       </div>
     </div>
   );
@@ -136,7 +137,7 @@ function ChatWindow({
   // Auto-scroll to bottom
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isLoading]);
 
   if (!chat) {
     return (
@@ -154,6 +155,7 @@ function ChatWindow({
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b p-3">
         <Avatar className="h-10 w-10 border">
+          <AvatarImage src={chat.profilePicUrl} />
           <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
         </Avatar>
         <div>

@@ -23,6 +23,7 @@ export type User = {
 export type WahaChat = {
   id: string; // e.g., '1234567890@c.us'
   name: string; // Contact name or group subject
+  profilePicUrl?: string; // The URL for the contact's profile picture
   isGroup: boolean;
   timestamp: number;
   lastMessage: {
