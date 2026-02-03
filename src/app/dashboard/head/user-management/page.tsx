@@ -36,6 +36,7 @@ const editFormSchema = z.object({
   role: z.enum(['SALES', 'HEAD_SALES']),
   group: z.enum(['Yogyakarta', 'Pekanbaru']),
   wahaSessionName: z.string().optional(),
+  wahaPhoneNumber: z.string().optional(),
 });
 
 export default function UserManagementPage() {
@@ -140,7 +141,8 @@ export default function UserManagementPage() {
       name: user.name || '',
       role: user.role || 'SALES',
       group: user.group || 'Yogyakarta',
-      wahaSessionName: user.wahaSessionName || ''
+      wahaSessionName: user.wahaSessionName || '',
+      wahaPhoneNumber: user.wahaPhoneNumber || '',
     });
     setIsEditDialogOpen(true);
   };
@@ -155,6 +157,7 @@ export default function UserManagementPage() {
             role: values.role,
             group: values.group,
             wahaSessionName: values.wahaSessionName || '',
+            wahaPhoneNumber: values.wahaPhoneNumber || null,
         });
         toast({ title: 'User Updated Successfully' });
         setIsEditDialogOpen(false);
@@ -420,6 +423,22 @@ export default function UserManagementPage() {
                     </FormControl>
                     <FormDescription>
                       Link an existing WAHA session to avoid re-scanning QR.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="wahaPhoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>WAHA Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 628123456789" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormDescription>
+                      Optional. Will be auto-updated by the system when the session connects.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
