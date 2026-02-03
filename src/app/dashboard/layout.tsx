@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare, Plug } from 'lucide-react';
+import { LayoutDashboard, Loader2, LogOut, User, Settings, Users, MessageSquare, Plug, QrCode } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -68,6 +68,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const getPageTitle = () => {
     if (pathname === '/dashboard/head') return 'My Dashboard';
     if (pathname === '/dashboard/head/user-management') return 'User Management';
+    if (pathname === '/dashboard/head/waha-sessions') return 'WAHA Session Management';
     if (pathname.startsWith('/dashboard/sales')) return 'My Profile';
     if (pathname.startsWith('/dashboard/profile')) return 'Edit Profile';
     if (pathname.startsWith('/dashboard/chat')) return 'Obrolan';
@@ -98,6 +99,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         <SidebarMenuItem>
                             <SidebarMenuButton asChild isActive={pathname === '/dashboard/head/user-management'}>
                                 <Link href="/dashboard/head/user-management"><Users />User Management</Link>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                        <SidebarMenuItem>
+                            <SidebarMenuButton asChild isActive={pathname.startsWith('/dashboard/head/waha-sessions')}>
+                                <Link href="/dashboard/head/waha-sessions"><QrCode />WAHA Sessions</Link>
                             </SidebarMenuButton>
                         </SidebarMenuItem>
                         <SidebarMenuItem>

@@ -15,6 +15,7 @@ export type User = {
   wahaSessionName?: string;
   wahaPhoneNumber?: string;
   wahaStatus?: WahaSessionStatus;
+  wahaQrCode?: string;
 };
 
 export type Message = {

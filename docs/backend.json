@@ -53,6 +53,10 @@
             "qrcode",
             "connected"
           ]
+        },
+        "wahaQrCode": {
+          "type": "string",
+          "description": "The data URI of the QR code from WAHA."
         }
       },
       "required": [
