@@ -87,7 +87,13 @@ function ChatList({
         </div>
       );
     }
-    return chat.contactNumber || '';
+     if (chat.contactNumber) {
+      return <span>{chat.contactNumber}</span>;
+    }
+    if (chat.id.includes('@lid')) {
+        return <span className="italic">Nomor disembunyikan (LID)</span>;
+    }
+    return '';
   };
   
   return (
@@ -337,7 +343,13 @@ function ChatWindow({
         </div>
       );
     }
-    return <p className="text-sm text-muted-foreground">{chat.contactNumber || 'Direct Message'}</p>;
+    if (chat.contactNumber) {
+        return <p className="text-sm text-muted-foreground">{chat.contactNumber}</p>;
+    }
+    if (chat.id.includes('@lid')) {
+        return <p className="text-sm text-muted-foreground italic">Nomor disembunyikan (LID)</p>;
+    }
+    return null;
   };
 
   return (
@@ -558,9 +570,10 @@ export default function ChatPage() {
     if (wahaChats.length === 0 || !selectedSalesUser?.wahaSessionName) return;
 
     const sessionName = selectedSalesUser.wahaSessionName;
+    // Only fetch for top 30 chats to avoid spamming the API on initial load
     const chatsToFetch = wahaChats
-      .slice(0, 30) // Limit to top 30 to avoid spamming API
-      .filter(chat => !contactMetaCache[chat.id]); // Only fetch if not in cache
+      .slice(0, 30) 
+      .filter(chat => !contactMetaCache[chat.id]);
 
     if (chatsToFetch.length === 0) return;
 
@@ -574,7 +587,7 @@ export default function ChatPage() {
             return { [chat.id]: result.data };
           }
           if (process.env.NODE_ENV === 'development') {
-            console.warn(`Failed to fetch meta for ${chat.id}:`, result.hint);
+            console.warn(`Gagal mengambil meta untuk ${chat.id}:`, result.hint);
           }
           return null;
         })
@@ -642,13 +655,14 @@ export default function ChatPage() {
       const meta = contactMetaCache[chat.id];
       const alias = isHeadSales ? contactAliases[chat.id] : null;
 
+      // Fallback number from ID is only for @c.us contacts
       const fallbackNumber = chat.id.includes('@c.us') ? chat.id.split('@')[0] : null;
 
       return {
         ...chat,
         displayName: alias || meta?.displayName || chat.name,
         contactNumber: meta?.number || fallbackNumber,
-        profilePicUrl: meta?.profilePictureURL || chat.profilePicUrl,
+        profilePicUrl: meta?.profilePictureURL, // Use only from meta, not from original chat
       };
     });
   }, [wahaChats, contactMetaCache, contactAliases, isHeadSales]);

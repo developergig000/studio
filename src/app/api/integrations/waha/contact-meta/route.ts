@@ -3,7 +3,7 @@ import { wahaRequest } from '@/lib/wahaClient';
 import { NextResponse } from 'next/server';
 
 type ContactMeta = {
-  displayName: string | null;
+  displayName: string;
   number: string | null;
   profilePictureURL: string | null;
   resolvedContactId: string;
@@ -18,9 +18,9 @@ const normalizeResponseData = (data: any): any => {
   return data;
 };
 
-// Helper to extract number from ID
+// Helper to extract number from ID, returns null if not a @c.us ID
 const extractNumberFromId = (id: string): string | null => {
-    if (id.includes('@c.us')) {
+    if (id && id.includes('@c.us')) {
         return id.split('@')[0];
     }
     return null;
@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     );
   }
 
-  // Handle group chats separately and exit early.
+  // --- 1. Handle Group Chats Early ---
   if (contactId.endsWith('@g.us')) {
     const groupMeta: ContactMeta = {
       displayName: searchParams.get('chatName') || contactId.split('@')[0], // Use provided chat name or fallback
@@ -49,38 +49,41 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: true, data: groupMeta });
   }
 
-  // --- Logic for personal chats (@c.us, @lid) ---
+  // --- 2. Logic for Personal Chats (@c.us, @lid) ---
   let resolvedContactId = contactId;
-  let fallbackName = extractNumberFromId(contactId);
-
-  // Note: LID resolution is a placeholder for a potential future implementation.
-  // Most WAHA forks do not have a standard LID resolution endpoint.
-  // If your WAHA fork has one, you would add the request logic here.
+  let displayNameFallback = extractNumberFromId(contactId) || contactId; // Fallback is phone number or original ID
+  
+  // Placeholder for LID resolution if your WAHA fork supports it.
+  // Most don't have a standard endpoint, so we proceed with the LID.
   if (contactId.includes('@lid')) {
-     // For now, we use the LID as the primary identifier and try to get info.
-     // A more advanced implementation would resolve LID to a phone number first.
-     fallbackName = 'Unknown LID Contact';
+     displayNameFallback = "LID Contact"; // A more specific fallback for LIDs
   }
 
-
   try {
-    // 1. Fetch contact details (name, pushname, number)
+    // --- 3. Fetch Contact Information ---
+    // This single endpoint often contains name, pushname, and number.
     const contactInfoResponse = await wahaRequest({
       path: `/api/${sessionName}/contacts/${resolvedContactId}`,
     });
 
     const contactData = normalizeResponseData(contactInfoResponse.data);
-    
-    const displayName = contactData?.name || contactData?.pushname || fallbackName;
-    const contactNumber = contactData?.number || extractNumberFromId(resolvedContactId);
 
-    // 2. Fetch profile picture URL
+    // --- 4. Determine Best Display Name and Number ---
+    const displayName = contactData?.name || contactData?.pushname || contactData?.shortName || displayNameFallback;
+    const contactNumber = contactData?.number || extractNumberFromId(resolvedContactId);
+    
+    // --- 5. Fetch Profile Picture URL ---
+    let profilePictureURL: string | null = null;
     const profilePicResponse = await wahaRequest({
       path: `/api/${sessionName}/contacts/${resolvedContactId}/picture`,
     });
     const picData = normalizeResponseData(profilePicResponse.data);
-    const profilePictureURL = (profilePicResponse.ok && picData?.url) ? picData.url : null;
     
+    if (profilePicResponse.ok && picData?.url) {
+      profilePictureURL = picData.url;
+    }
+
+    // --- 6. Assemble Final Metadata ---
     const finalMeta: ContactMeta = {
       displayName,
       number: contactNumber,
