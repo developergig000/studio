@@ -19,11 +19,13 @@ export type User = {
   wahaQrCode?: string;
 };
 
-// For WAHA chats
+// For WAHA chats, enriched with metadata
 export type WahaChat = {
   id: string; // e.g., '1234567890@c.us'
-  name: string; // Contact name or group subject
-  profilePicUrl?: string; // The URL for the contact's profile picture
+  name: string; // Original name from WAHA
+  displayName: string; // Name to display (alias > pushname > name)
+  profilePicUrl?: string | null;
+  contactNumber?: string | null;
   isGroup: boolean;
   timestamp: number;
   lastMessage: {

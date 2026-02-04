@@ -1,3 +1,4 @@
+
 'use client';
 
 import * as React from 'react';
@@ -10,13 +11,23 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones, Search, Pencil, Check, X } from 'lucide-react';
+import { Loader2, MessageCircle, ServerCrash, AlertTriangle, FileText, ImageIcon, Video, Headphones, Search, Pencil, Check, X, Group } from 'lucide-react';
 import type { WahaApiResponse } from '@/lib/wahaClient';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+
+
+type ContactMeta = {
+  displayName: string;
+  number: string | null;
+  profilePictureURL: string | null;
+  resolvedContactId: string;
+};
+
+type ContactMetaCache = Record<string, ContactMeta>;
 
 // Helper function to get user initials
 function getInitials(name?: string | null) {
@@ -67,6 +78,18 @@ function ChatList({
   selectedChatId: string | null;
   isHeadSales: boolean;
 }) {
+  const getSubtitle = (chat: WahaChat) => {
+    if (chat.isGroup) {
+      return (
+        <div className="flex items-center gap-1.5">
+          <Group className="h-3.5 w-3.5"/> 
+          <span>Group</span>
+        </div>
+      );
+    }
+    return chat.contactNumber || '';
+  };
+  
   return (
     <ScrollArea className="h-full">
       <div className="flex flex-col">
@@ -153,11 +176,11 @@ function ChatList({
             >
               <Avatar className="h-10 w-10 border">
                 <AvatarImage src={chat.profilePicUrl} />
-                <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
+                <AvatarFallback>{getInitials(chat.displayName)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 truncate">
-                <p className="font-semibold">{chat.name}</p>
-                <p className="text-sm text-muted-foreground truncate">{chat.lastMessage?.body}</p>
+                <p className="font-semibold">{chat.displayName}</p>
+                <p className="text-sm text-muted-foreground truncate">{getSubtitle(chat)}</p>
               </div>
             </button>
           ))}
@@ -292,7 +315,7 @@ function ChatWindow({
   }
   
   const handleEditClick = () => {
-    setEditedName(chat.name || '');
+    setEditedName(chat.displayName || '');
     setIsEditingName(true);
   };
   
@@ -305,12 +328,24 @@ function ChatWindow({
     setIsEditingName(false);
   };
 
+  const getSubtitle = () => {
+    if (chat.isGroup) {
+      return (
+        <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Group className="h-3.5 w-3.5"/> 
+          <span>Group</span>
+        </div>
+      );
+    }
+    return <p className="text-sm text-muted-foreground">{chat.contactNumber || 'Direct Message'}</p>;
+  };
+
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex items-center gap-3 border-b p-3 pr-4">
         <Avatar className="h-10 w-10 border">
           <AvatarImage src={chat.profilePicUrl} />
-          <AvatarFallback>{getInitials(chat.name)}</AvatarFallback>
+          <AvatarFallback>{getInitials(chat.displayName)}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
           {isEditingName ? (
@@ -331,7 +366,7 @@ function ChatWindow({
             </div>
           ) : (
             <div className="flex items-center gap-1">
-              <p className="font-semibold">{chat.name}</p>
+              <p className="font-semibold">{chat.displayName}</p>
               {isHeadSales && (
                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={handleEditClick}>
                     <Pencil className="h-3 w-3" />
@@ -339,7 +374,7 @@ function ChatWindow({
               )}
             </div>
           )}
-          <p className="text-sm text-muted-foreground">{chat.isGroup ? 'Group Chat' : 'Direct Message'}</p>
+          {getSubtitle()}
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -385,6 +420,7 @@ export default function ChatPage() {
   
   const [wahaChats, setWahaChats] = React.useState<WahaChat[]>([]);
   const [contactAliases, setContactAliases] = React.useState<Record<string, string>>({});
+  const [contactMetaCache, setContactMetaCache] = React.useState<ContactMetaCache>({});
   
   const [chatsLoading, setChatsLoading] = React.useState(false);
   const [chatsError, setChatsError] = React.useState<string | null>(null);
@@ -400,9 +436,7 @@ export default function ChatPage() {
 
   const isHeadSales = user?.role === 'HEAD_SALES';
 
-  // Effect 1: Determine which user to show chats for.
-  // - HEAD_SALES: Fetch all sales users for selection.
-  // - SALES: Automatically select the logged-in user.
+  // Effect 1: Fetch sales users and groups (for HEAD_SALES) or set current user (for SALES)
   React.useEffect(() => {
     async function fetchSalesUsers() {
       if (!isHeadSales) return;
@@ -418,13 +452,11 @@ export default function ChatPage() {
     if (isHeadSales) {
         fetchSalesUsers();
     } else if (user) {
-        // For SALES role, automatically select themselves
         setSelectedSalesUser(user);
-        setSalesUsers([]);
     }
   }, [user, isHeadSales]);
 
-  // Effect 2: Fetch contact aliases (only for HEAD_SALES)
+  // Effect 2: Fetch custom contact name aliases (only for HEAD_SALES)
   React.useEffect(() => {
     async function fetchAliases() {
       if (!selectedSalesUser || !isHeadSales) {
@@ -457,6 +489,7 @@ export default function ChatPage() {
       setWahaMessages([]);
       setChatsError(null);
       setChatSearchTerm('');
+      setContactMetaCache({}); // Clear meta cache when user changes
 
       if (!selectedSalesUser) return;
       
@@ -520,7 +553,56 @@ export default function ChatPage() {
     };
   }, [selectedSalesUser]);
 
-  // Effect 4: Fetch messages for the selected chat
+  // Effect 4: Fetch contact metadata for visible chats
+  React.useEffect(() => {
+    if (wahaChats.length === 0 || !selectedSalesUser?.wahaSessionName) return;
+
+    const sessionName = selectedSalesUser.wahaSessionName;
+    const chatsToFetch = wahaChats
+      .slice(0, 30) // Limit to top 30 to avoid spamming API
+      .filter(chat => !contactMetaCache[chat.id]); // Only fetch if not in cache
+
+    if (chatsToFetch.length === 0) return;
+
+    setLoadingMessage('Mengambil detail kontak...');
+    
+    const fetchPromises = chatsToFetch.map(chat =>
+      fetch(`/api/integrations/waha/contact-meta?sessionName=${sessionName}&contactId=${chat.id}&chatName=${encodeURIComponent(chat.name)}`)
+        .then(res => res.json())
+        .then(result => {
+          if (result.ok && result.data) {
+            return { [chat.id]: result.data };
+          }
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(`Failed to fetch meta for ${chat.id}:`, result.hint);
+          }
+          return null;
+        })
+        .catch(err => {
+            if (process.env.NODE_ENV === 'development') {
+                console.error(`Error fetching meta for ${chat.id}:`, err);
+            }
+            return null;
+        })
+    );
+
+    Promise.all(fetchPromises).then(results => {
+      const newMetas = results.reduce((acc, result) => {
+        if (result) {
+          return { ...acc, ...result };
+        }
+        return acc;
+      }, {});
+
+      if (Object.keys(newMetas).length > 0) {
+        setContactMetaCache(prev => ({ ...prev, ...newMetas }));
+      }
+      setLoadingMessage(null);
+    });
+
+  }, [wahaChats, selectedSalesUser, contactMetaCache]);
+
+  // Effect 5: Fetch messages for the selected chat
   React.useEffect(() => {
     async function fetchWahaMessages() {
         setWahaMessages([]);
@@ -554,24 +636,33 @@ export default function ChatPage() {
     return salesUsers.filter(u => u.group === selectedGroup);
   }, [salesUsers, selectedGroup]);
 
-  // Derived state: chats with aliases applied (for HEAD_SALES)
-  const mergedWahaChats = React.useMemo(() => {
-    if (!isHeadSales) return wahaChats;
-    return wahaChats.map(chat => ({
+  // Derived state: chats with aliases and metadata applied
+  const enrichedChats = React.useMemo(() => {
+    return wahaChats.map(chat => {
+      const meta = contactMetaCache[chat.id];
+      const alias = isHeadSales ? contactAliases[chat.id] : null;
+
+      const fallbackNumber = chat.id.includes('@c.us') ? chat.id.split('@')[0] : null;
+
+      return {
         ...chat,
-        name: contactAliases[chat.id] || chat.name,
-    }));
-  }, [wahaChats, contactAliases, isHeadSales]);
+        displayName: alias || meta?.displayName || chat.name,
+        contactNumber: meta?.number || fallbackNumber,
+        profilePicUrl: meta?.profilePictureURL || chat.profilePicUrl,
+      };
+    });
+  }, [wahaChats, contactMetaCache, contactAliases, isHeadSales]);
 
   const filteredChats = React.useMemo(() => {
     if (!chatSearchTerm) {
-      return mergedWahaChats;
+      return enrichedChats;
     }
     const lowercasedQuery = chatSearchTerm.toLowerCase();
-    return mergedWahaChats.filter(chat =>
-      chat.name?.toLowerCase().includes(lowercasedQuery)
+    return enrichedChats.filter(chat =>
+      chat.displayName?.toLowerCase().includes(lowercasedQuery) ||
+      chat.contactNumber?.includes(lowercasedQuery)
     );
-  }, [chatSearchTerm, mergedWahaChats]);
+  }, [chatSearchTerm, enrichedChats]);
 
   const filteredMessages = React.useMemo(() => {
     if (!messageSearchTerm) {
@@ -594,7 +685,7 @@ export default function ChatPage() {
   };
 
   const handleSelectChat = (chatId: string) => {
-    const chat = mergedWahaChats.find(c => c.id === chatId) || null;
+    const chat = enrichedChats.find(c => c.id === chatId) || null;
     setSelectedChat(chat);
     setMessageSearchTerm('');
   };
@@ -609,7 +700,7 @@ export default function ChatPage() {
         setContactAliases(newAliases);
         
         if (selectedChat?.id === chatId) {
-            setSelectedChat(prev => prev ? { ...prev, name: newName.trim() } : null);
+            setSelectedChat(prev => prev ? { ...prev, displayName: newName.trim() } : null);
         }
 
         toast({ title: "Nama kontak diperbarui" });
