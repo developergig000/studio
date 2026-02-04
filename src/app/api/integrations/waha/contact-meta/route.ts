@@ -72,15 +72,20 @@ export async function GET(request: Request) {
     const displayName = contactData?.name || contactData?.pushname || contactData?.shortName || displayNameFallback;
     const contactNumber = contactData?.number || extractNumberFromId(resolvedContactId);
     
-    // --- 5. Fetch Profile Picture URL ---
-    let profilePictureURL: string | null = null;
-    const profilePicResponse = await wahaRequest({
-      path: `/api/${sessionName}/contacts/${resolvedContactId}/picture`,
-    });
-    const picData = normalizeResponseData(profilePicResponse.data);
-    
-    if (profilePicResponse.ok && picData?.url) {
-      profilePictureURL = picData.url;
+    // --- 5. Fetch Profile Picture URL (Smarter Logic) ---
+    // First, try to get it from the main contact data, as it's more efficient.
+    let profilePictureURL: string | null = contactData?.picUrl || contactData?.avatarUrl || contactData?.profile?.picUrl || null;
+
+    // If we didn't find the URL in the main contact data, THEN try the dedicated /picture endpoint.
+    if (!profilePictureURL) {
+      const profilePicResponse = await wahaRequest({
+        path: `/api/${sessionName}/contacts/${resolvedContactId}/picture`,
+      });
+      const picData = normalizeResponseData(profilePicResponse.data);
+      
+      if (profilePicResponse.ok && picData?.url) {
+        profilePictureURL = picData.url;
+      }
     }
 
     // --- 6. Assemble Final Metadata ---
