@@ -192,17 +192,20 @@ export async function GET(request: Request) {
     let contactNumber = contactData?.number || extractNumberFromId(resolvedContactId);
     let senderAlt: string | null = null;
     
-    // --- 4a. Enrich with Last Message for LIDs or missing data ---
-    if (isLidContact && (displayName === displayNameFallback || !contactNumber)) {
+    // --- 4a. Enrich with Last Message for LIDs ---
+    // ALWAYS fetch last message for LIDs to get SenderAlt, which is crucial for picture lookup.
+    if (isLidContact) {
         const lastMessage = await fetchLastRawMessage(sessionName, contactId);
         if (lastMessage) {
             const infoObject = lastMessage._data?.Info || lastMessage._data?.info;
             const pushName = infoObject?.PushName || infoObject?.pushname || lastMessage.pushName || lastMessage.pushname;
             
+            // Overwrite display name if a better one is found in the message
             if (pushName && typeof pushName === 'string' && pushName.trim() !== '') {
                 displayName = pushName;
             }
 
+            // Always try to get SenderAlt for picture lookup later
             senderAlt = infoObject?.SenderAlt || null;
             if (senderAlt && !contactNumber) {
                 const numberFromAlt = extractDigitsFromSenderAlt(senderAlt);
