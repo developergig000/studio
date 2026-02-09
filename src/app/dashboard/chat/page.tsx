@@ -580,7 +580,7 @@ export default function ChatPage() {
     setLoadingMessage('Mengambil detail kontak...');
     
     const fetchPromises = chatsToFetch.map(chat =>
-      fetch(`/api/integrations/waha/contact-meta?sessionName=${sessionName}&contactId=${chat.id}&chatName=${encodeURIComponent(chat.name)}`)
+      fetch(`/api/integrations/waha/contact-meta?sessionName=${encodeURIComponent(sessionName)}&contactId=${encodeURIComponent(chat.id)}&chatName=${encodeURIComponent(chat.name)}`)
         .then(res => res.json())
         .then(result => {
           if (result.ok && result.data) {
