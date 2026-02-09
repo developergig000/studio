@@ -181,7 +181,7 @@ function ChatList({
               )}
             >
               <Avatar className="h-10 w-10 border">
-                <AvatarImage src={chat.profilePicUrl} />
+                <AvatarImage src={chat.profilePicUrl || undefined} />
                 <AvatarFallback>{getInitials(chat.displayName)}</AvatarFallback>
               </Avatar>
               <div className="flex-1 truncate">
@@ -356,7 +356,7 @@ function ChatWindow({
     <div className="flex h-full flex-col overflow-hidden">
       <header className="flex items-center gap-3 border-b p-3 pr-4">
         <Avatar className="h-10 w-10 border">
-          <AvatarImage src={chat.profilePicUrl} />
+          <AvatarImage src={chat.profilePicUrl || undefined} />
           <AvatarFallback>{getInitials(chat.displayName)}</AvatarFallback>
         </Avatar>
         <div className="flex-1">
@@ -662,7 +662,7 @@ export default function ChatPage() {
         ...chat,
         displayName: alias || meta?.displayName || chat.name,
         contactNumber: meta?.number || fallbackNumber,
-        profilePicUrl: meta?.profilePictureURL, // Use only from meta, not from original chat
+        profilePicUrl: meta?.profilePictureURL || chat.profilePicUrl || null,
       };
     });
   }, [wahaChats, contactMetaCache, contactAliases, isHeadSales]);

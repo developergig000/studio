@@ -1,5 +1,5 @@
 
-import { wahaRequest, type WahaApiResponse } from '@/lib/wahaClient';
+import { wahaRequest } from '@/lib/wahaClient';
 import { NextResponse } from 'next/server';
 
 type ContactMeta = {
@@ -25,10 +25,10 @@ const normalizeResponseData = (data: any): any => {
  * Extracts a clean phone number from a contact ID string (e.g., '628123@c.us').
  */
 const extractNumberFromId = (id: string): string | null => {
-    if (id && id.includes('@c.us')) {
-        return id.split('@')[0];
-    }
-    return null;
+  if (id && id.includes('@c.us')) {
+    return id.split('@')[0];
+  }
+  return null;
 };
 
 /**
@@ -36,11 +36,11 @@ const extractNumberFromId = (id: string): string | null => {
  * e.g., "6289680597803:83@s.whatsapp.net" -> "6289680597803"
  */
 const extractDigitsFromSenderAlt = (senderAlt: string | null | undefined): string | null => {
-    if (!senderAlt) return null;
-    const numberPart = senderAlt.split('@')[0]?.split(':')[0];
-    if (!numberPart) return null;
-    const digits = numberPart.replace(/\D/g, '');
-    return digits.length > 0 ? digits : null;
+  if (!senderAlt) return null;
+  const numberPart = senderAlt.split('@')[0]?.split(':')[0];
+  if (!numberPart) return null;
+  const digits = numberPart.replace(/\D/g, '');
+  return digits.length > 0 ? digits : null;
 };
 
 /**
@@ -58,8 +58,8 @@ async function fetchLastRawMessage(sessionName: string, chatId: string): Promise
   for (const path of possiblePaths) {
     const response = await wahaRequest({ path });
     if (response.ok) {
-      let rawMessages: any[] = [];
       const responseData = response.data;
+      let rawMessages: any[] = [];
       if (Array.isArray(responseData)) {
         rawMessages = responseData;
       } else if (responseData && Array.isArray(responseData.data)) {
@@ -68,8 +68,10 @@ async function fetchLastRawMessage(sessionName: string, chatId: string): Promise
         rawMessages = responseData.messages;
       } else if (responseData && Array.isArray(responseData.result)) {
         rawMessages = responseData.result;
+      } else if (responseData && Array.isArray(responseData.response)) {
+        rawMessages = responseData.response;
       }
-      
+
       if (rawMessages.length > 0) {
         return rawMessages[0]; // Return the first raw message object
       }
@@ -78,9 +80,78 @@ async function fetchLastRawMessage(sessionName: string, chatId: string): Promise
   return null;
 }
 
+/**
+ * Fetches contact info by trying multiple API paths.
+ */
+async function fetchContactInfo(sessionName: string, contactId: string): Promise<any | null> {
+    const encodedId = encodeURIComponent(contactId);
+    const possiblePaths = [
+        `/api/sessions/${sessionName}/contacts/${encodedId}`,
+        `/api/${sessionName}/contacts/${encodedId}`,
+        `/api/contacts/${sessionName}/${encodedId}`,
+        `/api/contacts/${encodedId}?session=${sessionName}`
+    ];
+    for (const path of possiblePaths) {
+        const response = await wahaRequest({ path });
+        if (response.ok && response.data) {
+            return normalizeResponseData(response.data);
+        }
+    }
+    return null;
+}
+
+
+/**
+ * Fetches a profile picture, supporting both JSON (URL) and binary (image data) responses.
+ * Tries multiple API paths for a given contact ID.
+ */
+async function fetchProfilePictureUrl(sessionName: string, contactId: string): Promise<string | null> {
+    const baseURL = process.env.WAHA_INTERNAL_URL;
+    const apiKey = process.env.WAHA_API_KEY;
+
+    if (!baseURL || !apiKey || !contactId) return null;
+
+    const encodedId = encodeURIComponent(contactId);
+    const pathTemplates = [
+        `/api/sessions/${sessionName}/contacts/${encodedId}/picture`,
+        `/api/${sessionName}/contacts/${encodedId}/picture`,
+        `/api/contacts/${sessionName}/${encodedId}/picture`,
+        `/api/contacts/${encodedId}/picture?session=${sessionName}`,
+        `/api/sessions/${sessionName}/contacts/${encodedId}/profile-picture`,
+        `/api/${sessionName}/contacts/${encodedId}/profile-picture`,
+    ];
+
+    for (const path of pathTemplates) {
+        const targetUrl = `${baseURL.replace(/\/$/, '')}${path}`;
+        try {
+            const response = await fetch(targetUrl, {
+                headers: { 'X-Api-Key': apiKey.trim() }
+            });
+
+            if (!response.ok) continue;
+
+            const contentType = response.headers.get('content-type');
+
+            if (contentType?.includes('application/json')) {
+                const json = await response.json();
+                const url = json.url || json.picUrl || json.profilePicUrl || json.pictureUrl;
+                if (url) return url;
+            } else if (contentType?.includes('image') || contentType?.includes('application/octet-stream')) {
+                const buffer = await response.arrayBuffer();
+                const base64String = Buffer.from(buffer).toString('base64');
+                return `data:${contentType};base64,${base64String}`;
+            }
+        } catch (error) {
+            if (process.env.NODE_ENV === 'development') {
+                console.warn(`Profile picture fetch failed for path ${path}:`, error);
+            }
+        }
+    }
+
+    return null;
+}
 
 // --- Main API Route Handler ---
-
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const sessionName = searchParams.get('sessionName');
@@ -111,10 +182,7 @@ export async function GET(request: Request) {
     const displayNameFallback = isLidContact ? "LID Contact" : (extractNumberFromId(contactId) || contactId);
     
     // --- 3. Fetch Initial Contact Info ---
-    const contactInfoResponse = await wahaRequest({
-      path: `/api/${sessionName}/contacts/${resolvedContactId}`,
-    });
-    const contactData = normalizeResponseData(contactInfoResponse.data);
+    const contactData = await fetchContactInfo(sessionName, resolvedContactId);
     
     // --- 4. Determine Initial Display Name & Number ---
     let displayName = contactData?.name || 
@@ -149,23 +217,22 @@ export async function GET(request: Request) {
     let profilePictureURL: string | null = contactData?.picUrl || contactData?.avatarUrl || contactData?.profile?.picUrl || null;
 
     if (!profilePictureURL) {
+      // Build a list of candidate IDs to try for fetching the picture.
       const pictureLookupCandidates = [
         resolvedContactId,
-        senderAlt,
+        senderAlt, // This will be null for non-LIDs or if not found
         contactNumber ? `${contactNumber}@s.whatsapp.net` : null,
         contactNumber ? `${contactNumber}@c.us` : null,
-      ].filter(Boolean) as string[];
+      ].filter(Boolean) as string[]; // Remove null/undefined candidates
+      
+      const uniqueCandidates = [...new Set(pictureLookupCandidates)];
 
-      for (const candidateId of pictureLookupCandidates) {
-        const profilePicResponse = await wahaRequest({
-          path: `/api/${sessionName}/contacts/${encodeURIComponent(candidateId)}/picture`,
-        });
-        const picData = normalizeResponseData(profilePicResponse.data);
-        
-        if (profilePicResponse.ok && picData?.url) {
-          profilePictureURL = picData.url;
-          break; // Stop on first success
-        }
+      for (const candidateId of uniqueCandidates) {
+          const picUrl = await fetchProfilePictureUrl(sessionName, candidateId);
+          if (picUrl) {
+              profilePictureURL = picUrl;
+              break; // Stop on first success
+          }
       }
     }
 
