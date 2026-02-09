@@ -27,13 +27,14 @@ function normalizeChats(responseData: any): WahaChat[] | null {
     if (rawChats.length > 0) {
         // Map to our standard WahaChat format, providing fallbacks for missing fields
         return rawChats.map(chat => {
-            // Expanded name-finding logic
+            // Expanded name-finding logic based on various WAHA payloads
             let name = chat.name ||
                        chat.pushname || // Common property
-                       chat.formattedName || // Another common one
                        chat.contact?.name ||
                        chat.contact?.pushname ||
-                       (typeof chat.id === 'object' ? chat.id.user : chat.id) || // Use user part of ID object, or ID string
+                       chat.formattedName || 
+                       chat._data?.Info?.PushName || // From detailed message info
+                       (typeof chat.id === 'object' ? chat.id.user : chat.id) || // Use user part of ID object
                        'Unknown';
 
             // Clean up name if it's a raw ID (like 12345@c.us or 12345@lid)

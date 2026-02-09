@@ -68,9 +68,18 @@ export async function GET(request: Request) {
 
     const contactData = normalizeResponseData(contactInfoResponse.data);
 
-    // --- 4. Determine Best Display Name and Number ---
-    const displayName = contactData?.name || contactData?.pushname || contactData?.shortName || displayNameFallback;
-    const contactNumber = contactData?.number || extractNumberFromId(resolvedContactId);
+    // --- 4. Determine Best Display Name and Number from various possible structures ---
+    const infoObject = contactData?._data?.Info || contactData?.Info;
+
+    const displayName = contactData?.name || 
+                      contactData?.pushname || 
+                      infoObject?.PushName || // Look for PushName in Info object
+                      contactData?.shortName || 
+                      displayNameFallback;
+    
+    const senderAlt = infoObject?.SenderAlt;
+    const senderAltNumber = senderAlt ? senderAlt.split(':')[0] : null; // Extract number from SenderAlt
+    const contactNumber = contactData?.number || senderAltNumber || extractNumberFromId(resolvedContactId);
     
     // --- 5. Fetch Profile Picture URL (Smarter Logic) ---
     // First, try to get it from the main contact data, as it's more efficient.
