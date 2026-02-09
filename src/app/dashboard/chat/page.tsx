@@ -1,4 +1,3 @@
-
 'use client';
 
 import * as React from 'react';
@@ -89,9 +88,6 @@ function ChatList({
     }
      if (chat.contactNumber) {
       return <span>{chat.contactNumber}</span>;
-    }
-    if (chat.id.includes('@lid')) {
-        return <span className="italic">Nomor disembunyikan (LID)</span>;
     }
     return '';
   };
@@ -345,9 +341,6 @@ function ChatWindow({
     }
     if (chat.contactNumber) {
         return <p className="text-sm text-muted-foreground">{chat.contactNumber}</p>;
-    }
-    if (chat.id.includes('@lid')) {
-        return <p className="text-sm text-muted-foreground italic">Nomor disembunyikan (LID)</p>;
     }
     return null;
   };
